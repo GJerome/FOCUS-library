@@ -3,16 +3,18 @@ import time
 import numpy as np
 
 # --------------------------------------------------------
-
 def WaitStatus(cc, val, timeout):       
+        #print("WaitStatus : " + val)
         for x in range(timeout):
                 time.sleep(0.01)
                 cmd = '1TS\r\n'
                 cc.write(cmd.encode())
                 status = cc.readline().decode().rstrip() 
+                #print("Status loop= " + status)      
+                #if val in status:
                 if (status in val) and (status != ''):
                         cc.Status=status
-                        print(" Status = " + status)
+                        #print(" Status = " + status)
                         return 1
         print("WaitStatus timeout, Status = " + status)
         return -1;
@@ -74,11 +76,13 @@ class ConexController:
     
 
     def __init__(self,ComPort):
+        """ This class connect to a motor using the Comport aguments. It communicate using Comp portts and CLI command. 
+        The function is then just to ensure that the command are send accordigly and that everything is working.
+        """
 
         # Connexion to the serial port
         self.SerialPort = serial.Serial(ComPort,baudrate=921600,timeout=3)
         self.Status=self.GetStatus()
-
         a=0
         while a!=1:
             if self.CheckNotReferencedStatus!= False:
@@ -89,6 +93,7 @@ class ConexController:
             # Execute home search
             self.SerialPort.write("1OR\r\n".encode()) 
             a=WaitStatus(self.SerialPort, '1TS000032', 10000)
+            #print(a)
         
         self.Pos=self.GetPosition()
         
@@ -100,9 +105,7 @@ class ConexController:
     # Move command
     
     def MoveTo(self,Pos):
-        """This function move the axis to a single given position and then update the Position variable.
-        It block the script while the motor go to the position."""
-
+        
         # First we try to move to the position 
         tempstr="1PA"+str(Pos)+"\r\n"
         self.SerialPort.write(tempstr.encode()) 
@@ -110,6 +113,7 @@ class ConexController:
 
         # If we are in unreferenced state we try the home position and go to the postion 
         while self.CheckNotReferencedStatus():
+            print('OR Command')
             self.SerialPort.write("1OR\r\n".encode()) 
             a=WaitStatus(self.SerialPort, '1TS000032', 10000)
                         
@@ -119,33 +123,24 @@ class ConexController:
 
         self.Pos=self.GetPosition()
     
-    def MoveToInstant(self,Pos):
-        """This function move the axis to a single given position and then update the Position variable.
-        It  doesn't block the script while the motor go to the position."""
-
+    def MoveToInstant(self,Pos): 
         tempstr="1PA"+str(Pos)+"\r\n"
         self.SerialPort.write(tempstr.encode())
     
-    ############
-    # Get controller and actuator properties
-    ############
-
+    # Set and Get differents properties
     def GetStatus(self):
-        """Return the status code of the controller."""
-        self.SerialPort.write('1TS\r\n'.encode())
+        cmd = '1TS\r\n'
+        self.SerialPort.write(cmd.encode())
         status = self.SerialPort.readline().decode().rstrip()
         return status
 
-    def GetSpeed(self):
-        """Return the speed of the actuator."""
+    def GetSpeed(self): 
         self.SerialPort.write("1VA?\r\n".encode())
         response =  self.SerialPort.readline()
         response_decoded = response.decode('UTF-8') 
         return response_decoded
     
-    def GetPosition(self):
-        """Return the position of the actuator."""
-
+    def GetPosition(self): 
         self.SerialPort.write("1TP\r\n".encode())
         response =  self.SerialPort.readline()
         response_decoded = response.decode('UTF-8')
@@ -155,51 +150,34 @@ class ConexController:
             
             exit("Problem while getting the position: {}".format(response_decoded)) 
         return Pos
-
-    ############
-    # Set controller and actuator properties
-    ############
-      
-    def SetSpeed(self,Speed):
-        """Set the speed of the actuator."""
+    
+    def SetSpeed(self,Speed): 
         tempstr="1VA"+str(Speed)+"\r\n"
         self.SerialPort.write(tempstr.encode()) 
         WaitStatus(self.SerialPort, '1TS000033 1TS000032', 1000)
 
-    ############
-    # MISC axis function
-    ############
+    # Misc  functions
         
     def PrintAllParameter(self):
-        """Print all the axis properties"""
-        self.SerialPort.write("1ZT\r\n".encode())
+        self.SerialPort.write("1ZT\r\n".encode())# Get controller status and error
         response =  self.SerialPort.readlines()
         response_decoded = [i.decode('UTF-8') for i in response]
-        [print(i) for i in response_decoded ]  
+        [print(i) for i in response_decoded ]   # write a string
 
     def CheckNotReferencedStatus(self):
-        """Check if the axis in an unreferenced state. If it is then we should call the CorrectNotReferencedState method
-        which check if the status code is for an unreferenced state."""
         temp=self.GetStatus()
         statusNotReferenced=['0A','0B','0C','0D','0E','0F']
         if any(ext in temp for ext in statusNotReferenced):
             return True
 
     def CorrectNotReferencedState(self):
-        """Send the home command if we are in an ureferenced state."""
         self.SerialPort.write("1OR\r\n".encode()) 
         a=WaitStatus(self.SerialPort, '1TS000032', 10000)
          
-
-############
-# Test code
-############
-
-# In the following we just connect to an axis load a series of point that will then be 
-# loaded and send to the controller which will go to those position.   
+    
 
 """
-print('Initialisation of the axis')
+print('Initialisation of z the axis')
 z_axis=ConexController('COM5')
 print('Initialisation of x the axis')
 x_axis=ConexController('COM3')
@@ -208,7 +186,7 @@ y_axis=ConexController('COM4')
 
 print('Move To different position')
 Pos=np.loadtxt('PostionConex.txt')
-GoToPositions(x_axis,y_axis,z_axis,Pos)
+#GoToPositions(x_axis,y_axis,z_axis,Pos)
 Posi=[1,1]
 Posf=[5,5]
 z=5
