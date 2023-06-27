@@ -61,7 +61,7 @@ class LockInAmplifier:
         self.api_session.subscribe(self.S1_name+"sample")
         self.api_session.subscribe(self.S2_name+"sample")
 
-        self.AutorangeSource()
+
 
         print("Initialised lock-in and subscribed to the node {} and {} at a samping rate of {} S/s".format(self.S1_name+"sample",self.S2_name+"sample",float(parameterDict['SamplingRate'])))
 
