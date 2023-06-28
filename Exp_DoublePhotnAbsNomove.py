@@ -5,25 +5,31 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import pandas as pd
-import ExportFile 
+import FileControl 
 import time
 
 #############################
 # Global parameter
 #############################
-time_exp=60*60 # time of experiment in second
+time_exp=60*10 # time of experiment in second
 time_sleep=10*60
 nb_loop=3
 
-FileNameData='2023-06-20-DataTinMeltingPerov_'
+FileNameData='DataTinMeltingPerov_'
+
 LockInParaFile='ParameterLockIn.txt'
 
+GeneralPara={'Experiment name':' PL no move','Exposition duration':time_exp,
+             'Time between run':time_sleep,'Number of loop':nb_loop}
 
+InstrumentsPara={}
 #############################
 # Initialisation of lock-in amplifier
 #############################
 
 LockInDevice=lock.LockInAmplifier(LockInParaFile)
+
+InstrumentsPara['Lock-in-amplifier']=LockInDevice.parameterDict
 
 #############################
 # Initialisation of laser
@@ -31,6 +37,13 @@ LockInDevice=lock.LockInAmplifier(LockInParaFile)
 
 Laser= las.LaserControl('COM6',2)
 
+InstrumentsPara['Laser']=LockInDevice.parameterDict
+
+#############################
+# Preparation ofnthe directory
+#############################
+
+DirectoryPath=FileControl.PrepareDirectory(GeneralPara,InstrumentsPara)
 
 #############################
 # Acquisition loop
@@ -53,7 +66,7 @@ for k in range(nb_loop) :
     t1_scaled=(t1-t1[1])/LockInDevice.Timebase
 
     export_data=(t1_scaled,Reflectivity,data_Source2_interp,data_Source1)
-    ExportFile.ExportFileLockIn(FileNameData+'loop{}'.format(str(k)),export_data)
+    FileControl.ExportFileLockIn(DirectoryPath,FileNameData+'loop{}'.format(str(k)),export_data)
 
     
     print('The sample is sleeping')

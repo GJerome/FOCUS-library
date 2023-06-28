@@ -21,6 +21,7 @@ class LaserControl:
         self.Wavelength=self.GetWavelength()
         print('Laser status: {}\n Laser wavelength:{} \n Shutter Tunable: {}\n Shutter fixed: {}'.format(self.Status,self.Wavelength,self.ShutterTunable,self.ShutterFixed))
 
+        self.parameterDict={'Tunable output wavelength':self.Wavelength}
 
     def GetStatus(self):
         self.SerialPort.write("?ST\r\n".encode('utf-8'))
@@ -86,5 +87,12 @@ class LaserControl:
             print("The shutter for the fixed output is closed")
         if self.ShutterFixed==1:
             print("The shutter for the fixed output is opened")
+    
+    ###########################
+    # MISC
+    ###########################    
+    
+    def GetParameterDictory(self,path):
+        return self.parameterDict
 
 
