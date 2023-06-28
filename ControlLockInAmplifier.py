@@ -18,19 +18,19 @@ class LockInAmplifier:
 
     def __init__(self,parafile):
         
-        parameterDict=ParameterRead(parafile)
+        self.parameterDict=ParameterRead(parafile)
         d=zhinst.core.ziDiscovery()
         
-        props = d.get(d.find(parameterDict['ServerName']))
+        props = d.get(d.find(self.parameterDict['ServerName']))
         self.api_session = zhinst.core.ziDAQServer(props['serveraddress'], props['serverport'], props['apilevel'])
         try:
-            self.api_session.connectDevice(parameterDict['ServerName'], props['interfaces'][0])
+            self.api_session.connectDevice(self.parameterDict['ServerName'], props['interfaces'][0])
         except zhinst.core.errors.TimeoutError:    
             sys.exit("Can't connect to the lock-in amplifier. You could try to reboot the system.")
         
         # Name of node for each demodulators
-        self.S1_name='/{}/demods/{}/'.format(parameterDict['ServerName'],parameterDict['Demodulator1'])
-        self.S2_name='/{}/demods/{}/'.format(parameterDict['ServerName'],parameterDict['Demodulator2'])
+        self.S1_name='/{}/demods/{}/'.format(self.parameterDict['ServerName'],self.parameterDict['Demodulator1'])
+        self.S2_name='/{}/demods/{}/'.format(self.parameterDict['ServerName'],self.parameterDict['Demodulator2'])
 
         #############################
         # Lock-in amplifier parameters
@@ -38,32 +38,33 @@ class LockInAmplifier:
 
         # First output
         self.api_session.setInt(self.S1_name+'enable', 1)
-        self.api_session.setDouble(self.S1_name+'rate', float(parameterDict['SamplingRate']))
+        self.api_session.setDouble(self.S1_name+'rate', float(self.parameterDict['SamplingRate']))
         try:
-            self.api_session.setInt(self.S1_name+'order', int(parameterDict['FilterOrder']))
-            self.api_session.setDouble(self.S1_name+'TimeConstant', float(parameterDict['TimeConstant']))
+            self.api_session.setInt(self.S1_name+'order', int(self.parameterDict['FilterOrder']))
+            self.api_session.setDouble(self.S1_name+'TimeConstant', float(self.parameterDict['TimeConstant']))
         except KeyError:
             print('Problem setting one of the experiment parameter')
 
         # Second output
         self.api_session.setInt(self.S2_name+'enable', 1)
-        self.api_session.setDouble(self.S2_name+'rate', float(parameterDict['SamplingRate']))
+        self.api_session.setDouble(self.S2_name+'rate', float(self.parameterDict['SamplingRate']))
 
         try:
-            self.api_session.setInt(self.S2_name+'order', int(parameterDict['FilterOrder']))
-            self.api_session.setDouble(self.S2_name+'TimeConstant', float(parameterDict['TimeConstant']))
+            self.api_session.setInt(self.S2_name+'order', int(self.parameterDict['FilterOrder']))
+            self.api_session.setDouble(self.S2_name+'TimeConstant', float(self.parameterDict['TimeConstant']))
         except KeyError:
             print('Problem setting one of the experiment parameter')
 
         # Global parameter
-        self.Timebase=float(self.api_session.getInt("/{}/clockbase".format(parameterDict['ServerName'])))
+        self.Timebase=float(self.api_session.getInt("/{}/clockbase".format(self.parameterDict['ServerName'])))
 
         self.api_session.subscribe(self.S1_name+"sample")
         self.api_session.subscribe(self.S2_name+"sample")
 
 
 
-        print("Initialised lock-in and subscribed to the node {} and {} at a samping rate of {} S/s".format(self.S1_name+"sample",self.S2_name+"sample",float(parameterDict['SamplingRate'])))
+        print("Initialised lock-in and subscribed to the node {} and {} at a samping rate of {} S/s".format(self.S1_name+"sample",
+                                                                                                            self.S2_name+"sample",float(self.parameterDict['SamplingRate'])))
 
     def AcquisitionLoop(self,time_exp):
         #############################
@@ -130,6 +131,9 @@ class LockInAmplifier:
             print(e)
             a='Error'
         return a
+    
+    def GetParameterDictory(self,path):
+        return self.parameterDict
 
     def AutorangeSource(self):
         a=self.SetPathValue('/dev2940/sigins/0/autorange', 1)
