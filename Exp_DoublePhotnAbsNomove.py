@@ -9,11 +9,11 @@ import time
 #############################
 # Global parameter
 #############################
-time_exp=60*10 # time of experiment in second
-time_sleep=10*60
-nb_loop=3
+time_exp=60*30 # time of experiment in second
+time_sleep=6
+nb_loop=2
 
-FileNameData='DataTinMeltingPerov_'
+FileNameData='DataPerformTinPerov_'
 
 LockInParaFile='ParameterLockIn.txt'
 
@@ -35,10 +35,10 @@ InstrumentsPara['Lock-in-amplifier']=LockInDevice.parameterDict
 
 Laser= las.LaserControl('COM6',2)
 
-InstrumentsPara['Laser']=LockInDevice.parameterDict
+InstrumentsPara['Laser']=Laser.parameterDict
 
 #############################
-# Preparation ofnthe directory
+# Preparation of the directory
 #############################
 
 DirectoryPath=FileControl.PrepareDirectory(GeneralPara,InstrumentsPara)

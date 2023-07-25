@@ -1,10 +1,10 @@
 #Don't forget to put space before  and after the equal sign
 #General parameter of the lock-in amplifier
 ServerName =dev2940
-SamplingRate = 10
+SamplingRate = 1000
 #Demodulator 1 to poll
 Demodulator1 = 0
-FilterOrder = 1
+FilterOrder = 8
 TimeConstant = 0.005
 #Demodulator 2 to poll
 Demodulator2 = 4
