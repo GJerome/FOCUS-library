@@ -12,7 +12,7 @@ Number of run=2
 #####
 #LockInamplifier
 #####
-Sampling rate=10000
+Sampling rate=1000
 name=test
 
 #####
