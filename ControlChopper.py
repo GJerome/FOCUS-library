@@ -30,8 +30,9 @@ class OpticalChopper:
                 self.Target=GetCommand(self.Chopper,'CTRL?')
                 #Get the frequency 
                 self.Freq=self.GetInternalFrequency()
+                self.Phase=self.GetPhase()
 
-                self.parameterDict={'Source =':self.Source,'Target =':self.Target,'Frequency used =':self.Freq}
+                self.parameterDict={'Source ':self.Source,'Target ':self.Target,'Frequency used ':self.Freq,'Phase':self.Phase}
 
 
         #####################################
@@ -71,6 +72,7 @@ class OpticalChopper:
         def SetPhase(self,Phase):
                 """ Set the phase in degree."""
                 SetCommand(self.Chopper,'PHAS '+str(Phase))
+                self.parameterDict['Phase']=Phase
         
         def SetRelPhase(self,Status):
                 """ Set the the relative phase home. The correct entry are 0/OFF or 1/ON """
@@ -92,8 +94,17 @@ class OpticalChopper:
                 except:
                         print('An error Occured')
 
+        def GetPhase(self):
+                """ Get the relative phase status."""
+                a=GetCommand(self.Chopper,'PHAS?')
+                try:
+                        return float(a)
+                except:
+                        print('An error occured')
+                        print(a)
+
         def GetRelPhase(self):
-                """ Get the relative phase status. Possible return value are 0/OFF or 1/ON."""
+                """ Get the relative phase status."""
                 a=GetCommand(self.Chopper,'RELP?')
                 try:
                         return float(a)
@@ -130,7 +141,6 @@ class OpticalChopper:
                 while x<timeout:
                         time.sleep(0.1)
                         StatusLock=[int(GetCommand(self.Chopper,'CHCR? 2')),int(GetCommand(self.Chopper,'CHCR? 3'))]
-                        print(StatusLock)
                         if StatusLock==[1,1]:
                                 return 1
                         x=time.time()-t0

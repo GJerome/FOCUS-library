@@ -1,4 +1,4 @@
-import ControlChopper as chop
+''''import ControlChopper as chop
 import time as time 
 
 InstrumentsPara={}
@@ -12,6 +12,8 @@ Chopper1.WaitForLock(10)
 
 for x in range(0,10*360,360):
     Chopper1.SetPhase(x)
-    Chopper1.WaitForLock(10)
+    Chopper1.WaitForLock(10)'''
 
+
+import ControlStandaMotor
 

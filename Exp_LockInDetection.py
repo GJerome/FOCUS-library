@@ -6,20 +6,21 @@ import numpy as np
 
 import FileControl 
 import time
-import matplotlib.pyplot as plt
 
 #############################
 # Global parameter
 #############################
-time_exp=1 # time of experiment in second
+time_exp=60*30 # time of experiment in second
+time_sleep=6
 nb_loop=2
+PhaseCalib=200
 
-FileNameData='DataChopperOptimisation_'
+FileNameData='DataPerformTinPerov_'
 
 LockInParaFile='ParameterLockIn.txt'
 
 GeneralPara={'Experiment name':' PL no move','Exposition duration':time_exp,
-             'Number of loop':nb_loop}
+             'Time between run':time_sleep,'Number of loop':nb_loop}
 
 InstrumentsPara={}
 #############################
@@ -45,9 +46,11 @@ InstrumentsPara['Laser']=Laser.parameterDict
 Chopper1= chop.OpticalChopper('COM14')
 Chopper1.SetInternalFrequency(0)
 Chopper1.SetMotorStatus('ON')
+Chopper1.SetPhase(PhaseCalib)
 Chopper1.WaitForLock(10)
 
 InstrumentsPara['Chopper']=Chopper1.parameterDict
+
 
 #############################
 # Preparation of the directory
@@ -59,44 +62,31 @@ DirectoryPath=FileControl.PrepareDirectory(GeneralPara,InstrumentsPara)
 # Acquisition loop
 #############################
 print('Begin acquisition')
-#angle=range(0,360,0.1)
-angle=np.arange(95,300,1)
 
-IntensityData=np.zeros(len(angle))
-IntensityData2=np.zeros(len(angle))
-ErrorBar=np.zeros(len(angle))
-ErrorBar2=np.zeros(len(angle))
-temp_iterator=np.nditer(angle, flags=['f_index'])
-
-print("Everything is ready")
-
-Laser.StatusShutterTunable(1)
-for k in  temp_iterator:
+for k in range(nb_loop) :
     Laser.StatusShutterTunable(1)
     LockInDevice.AutorangeSource()
-    Chopper1.SetPhase(np.round(k, decimals=2))
-    Chopper1.WaitForLock(10)
-    time.sleep(2)
-    
+    time.sleep(5)
 
     data_Source1,t1,data_Source2,t2=LockInDevice.AcquisitionLoop(time_exp)
-    
+
     #############################
     # Interpolation to the same timebase
     #############################
 
     data_Source2_interp=np.interp(t1,t2,data_Source2)
+    Reflectivity=np.divide(data_Source2_interp,data_Source1)
     t1_scaled=(t1-t1[1])/LockInDevice.Timebase
-    plt.scatter(t1_scaled[1:],data_Source1[1:])
-    print(np.round(k, decimals=2))
-    IntensityData[temp_iterator.index]=np.mean(data_Source1)
-    ErrorBar[temp_iterator.index]=np.std(data_Source1)
-    IntensityData2[temp_iterator.index]=np.mean(data_Source2_interp)
-    ErrorBar2[temp_iterator.index]=np.std(data_Source2_interp)
 
-ExportData=np.array(np.transpose([angle,IntensityData,ErrorBar,IntensityData2,ErrorBar2]))
-FileControl.ExportFileChopperOptimisation(DirectoryPath,FileNameData+'loop{}'.format(str(k)),ExportData)
+    export_data=(t1_scaled,Reflectivity,data_Source2_interp,data_Source1)
+    FileControl.ExportFileLockIn(DirectoryPath,FileNameData+'loop{}'.format(str(k)),export_data)
+
+    
+    print('The sample is sleeping')
+    Laser.StatusShutterTunable(0)
+    time.sleep(time_sleep)
+
+
 Laser.StatusShutterTunable(0)
-plt.show()
 
       
