@@ -73,9 +73,21 @@ class RotationMotorStanda:
 		waitM = lib.command_wait_for_stop(self.MotorId, 50)
         
 		if repr(moveM) != '0' :
-			print('Problem during movement to the absolute ange {} deg'.format(AngleAbs))
+			print('Problem during movement to the absolute angle {} deg'.format(AngleAbs))
 
 	def MoveRela(self,AngleRela):
 		resultA = lib.get_position(self.MotorId, byref(self.pos))
+		CurrentAngle=float(self.pos.Position / 80 + self.pos.uPosition/(256*80))
+		moveM = lib.command_move(self.MotorId, int((CurrentAngle+AngleRela) * self.convfactor//1), int((round((CurrentAngle+AngleRela) * self.convfactor)%1,3)*256)//1)
+		waitM = lib.command_wait_for_stop(self.MotorId, 50)
+        
+		if repr(moveM) != '0' :
+			print('Problem during movement to the relative angle {} deg'.format(AngleRela))
+	
+	def GetPos(self):
+		resultA = lib.get_position(self.MotorId, byref(self.pos))
+		CurrentAngle=float(self.pos.Position / 80 + self.pos.uPosition/(256*80))
+		return CurrentAngle
+		
 
 	
