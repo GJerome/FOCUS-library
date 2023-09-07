@@ -17,42 +17,6 @@ def ximc_shared_lib():
     else:
         return None
 
-def Find_Motor( devenum ):
-    # number of detected device
-    dev_count = lib.get_device_count(devenum)
-    controller_name = controller_name_t()
-
-    print("Device count: " + repr(dev_count))
-
-    # the open_device function return an id that can be used by libminx lib to
-    # call any  function
-
-    # The following loop will search for the device and put them in the following order in axis[]
-    # LB4 Prep ,LB4 ANA, LP ANA 
-    axis_id_f = ["", "", ""]
-    eng = engine_settings_t()
-
-    for i in range(0, 4):
-        open_name = lib.get_device_name(devenum, i)
-        if repr(open_name).find('COM5') != -1:
-            axis_id_f[0] = lib.open_device(lib.get_device_name(devenum, i))
-        elif repr(open_name).find('COM6') != -1:
-            axis_id_f[2] = lib.open_device(lib.get_device_name(devenum, i))
-        elif repr(open_name).find('COM4') != -1:
-            axis_id_f[1] = lib.open_device(lib.get_device_name(devenum, i))
-        else:
-            print('Axis not used in Muller exp')
-        
-	#The following loop will set the precsion of the motor to 1/256 step by manipulating a pointer to
-	#the motor  stored in eng
-    for i in range(0, 2):
-        result = lib.get_engine_settings(axis_id_f[i], byref(eng))
-        eng.MicrostepMode = MicrostepMode.MICROSTEP_MODE_FRAC_256
-        result = lib.set_engine_settings(axis_id_f[i], byref(eng))
-        if repr(result) != '0':
-            logfile.write('Problem of setting the motor precision :' + repr(result))
-    return axis_id_f;
-
 lib = ximc_shared_lib()
 
 # Common declarations
