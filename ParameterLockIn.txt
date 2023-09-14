@@ -4,6 +4,8 @@ ServerName =dev2940
 SamplingRate = 1000
 #Demodulator 1 to poll
 Demodulator1 = 0
+FilterOrder = 8
+TimeConstant = 0.05
 #Demodulator 2 to poll
 Demodulator2 = 4
 FilterOrder = 8

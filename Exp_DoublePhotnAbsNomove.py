@@ -33,7 +33,7 @@ InstrumentsPara['Lock-in-amplifier']=LockInDevice.parameterDict
 # Initialisation of laser
 #############################
 
-Laser= las.LaserControl('COM6',2)
+Laser= las.LaserControl('COM8',2)
 
 InstrumentsPara['Laser']=Laser.parameterDict
 

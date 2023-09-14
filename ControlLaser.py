@@ -10,7 +10,8 @@ class LaserControl:
         try:
         # Connexion to the serial port
             self.SerialPort = serial.Serial(ComPort,baudrate=19200,bytesize=serial.EIGHTBITS,timeout=3,parity=serial.PARITY_NONE)
-        except serial.serialutil.SerialException:
+        #except serial.serialutil.SerialException:
+        except :
             sys.exit("Can't connect to the laser. You could try to close Discovery NX.")
             
         self.ShutterFixed=self.GetStatusShutterFixed()
@@ -19,7 +20,7 @@ class LaserControl:
         self.ShutterWaitTime=ShutterWaitTime
         self.Status=self.GetStatus()
         self.Wavelength=self.GetWavelength()
-        print('Laser status: {}\n Laser wavelength:{} \n Shutter Tunable: {}\n Shutter fixed: {}'.format(self.Status,self.Wavelength,self.ShutterTunable,self.ShutterFixed))
+        #print('Laser status: {}\n Laser wavelength:{} \n Shutter Tunable: {}\n Shutter fixed: {}'.format(self.Status,self.Wavelength,self.ShutterTunable,self.ShutterFixed))
 
         self.parameterDict={'Tunable output wavelength':self.Wavelength}
 
@@ -94,5 +95,6 @@ class LaserControl:
     
     def GetParameterDictory(self,path):
         return self.parameterDict
+
 
 
