@@ -32,9 +32,9 @@ def Find_Motor(vertabatum=False):
 		open_name = pyximx.lib.get_device_name(devenum, i)
 		if vertabatum==True:
 			print(open_name)
-		if repr(open_name).find('COM7') != -1:
+		if repr(open_name).find('COM6') != -1:
 			axis_id[0] = pyximx.lib.open_device(pyximx.lib.get_device_name(devenum, i))
-		elif repr(open_name).find('COM8') != -1:
+		elif repr(open_name).find('COM7') != -1:
 			axis_id[1] = pyximx.lib.open_device(pyximx.lib.get_device_name(devenum, i))
 		else:
 			print('Problem during assignation of COM port for motor')
@@ -56,12 +56,12 @@ class RotationMotorStanda:
 	def SetPrecision(self):
 		pyximx.lib.get_engine_settings(self.MotorId, byref(self.eng))
 		self.eng.MicrostepMode = pyximx.MicrostepMode.MICROSTEP_MODE_FRAC_256
-		pyximx.lib.set_engine_settings(self.MotorId, byref(self.MotorId))
+		pyximx.lib.set_engine_settings(self.MotorId, byref(self.eng))
 
 	def MoveAbs(self,AngleAbs):
-		moveM = pyximx.lib.command_move(self.MotorId, floor(AngleAbs*self.convfactor), floor(((AngleAbs* self.convfactor)%1)*256))
-		waitM = pyximx.lib.command_wait_for_stop(self.MotorId, 50)
-        
+		moveM = pyximx.lib.command_move(self.MotorId, floor(AngleAbs*self.convfactor), floor(((AngleAbs* self.convfactor)%1)*256))		
+		waitM = pyximx.lib.command_wait_for_stop(self.MotorId, 10)
+		print(repr(waitM))
 		if repr(moveM) != '0' :
 			print('Problem during movement to the absolute angle {} deg'.format(AngleAbs))
 
@@ -69,7 +69,7 @@ class RotationMotorStanda:
 		resultA = pyximx.lib.get_position(self.MotorId, byref(self.pos))
 		CurrentAngle=float(self.pos.Position / 80 + self.pos.uPosition/(256*80))
 		moveM = pyximx.lib.command_move(self.MotorId, floor((CurrentAngle+AngleRela)*self.convfactor), floor((((CurrentAngle+AngleRela)*self.convfactor)%1)*256))
-		waitM = pyximx.lib.command_wait_for_stop(self.MotorId, 50)
+		waitM = pyximx.lib.command_wait_for_stop(self.MotorId, 10)
         
 		if repr(moveM) != '0' :
 			print('Problem during movement to the relative angle {} deg'.format(AngleRela))
@@ -78,10 +78,15 @@ class RotationMotorStanda:
 		resultA = pyximx.lib.get_position(self.MotorId, byref(self.pos))
 		CurrentAngle=float(self.pos.Position / 80 + self.pos.uPosition/(256*80))
 		return CurrentAngle
-	
-MotorIdList=Find_Motor()
-Motor1=RotationMotorStanda(MotorIdList[0])
-Motor1.MoveRela(+90)
-		
+
+if __name__ == '__main__':	
+	MotorIdList=Find_Motor(True)
+	Motor1=RotationMotorStanda(MotorIdList[1])
+	Motor1.MoveAbs(0)
+	print(Motor1.GetPos())
+	Motor1.MoveRela(+25.581)
+	print(Motor1.GetPos())
+	Motor1.MoveRela(+25.581)
+	print(Motor1.GetPos())	
 
 	
