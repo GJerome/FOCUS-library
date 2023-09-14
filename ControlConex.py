@@ -33,10 +33,11 @@ def GoToPositions(x_axis,y_axis,z_axis,Pos):
         time.sleep(Pos[i,3])
 
 
-def MoveLine(x_axis,y_axis,z_axis,Pos_i,Pos_f,z,speed_x,speed_y):
+def MoveLine2D(x_axis,y_axis,z_axis,Pos_i,Pos_f,z,speed_x=None,speed_y=None):
     """ The Pos_i and Pos_f parameter are the initial and final position on the (x,y) plane htey should be store in a 1D array of 
      length 2. We also fix the z axis. The parameter t is the time it should take to go from pos_i to pos_f. If the time is too short
      a warning will be output and the maximum speed will be set."""
+     
     temp=x_axis.GetSpeed()
     index_temp=temp.find('\r')
     v_temp_x=temp[3:index_temp]
@@ -44,6 +45,11 @@ def MoveLine(x_axis,y_axis,z_axis,Pos_i,Pos_f,z,speed_x,speed_y):
     temp=y_axis.GetSpeed()
     index_temp=temp.find('\r')
     v_temp_y=temp[3:index_temp]
+
+    if speed_x is not None or speed_y is not None:
+        x_axis.SetSpeed(speed_x)
+        y_axis.SetSpeed(speed_x)
+        print('Changed speed')
 
     ############
     # Initial position set
@@ -67,6 +73,35 @@ def MoveLine(x_axis,y_axis,z_axis,Pos_i,Pos_f,z,speed_x,speed_y):
     ############
     x_axis.SetSpeed(v_temp_x)
     y_axis.SetSpeed(v_temp_y)
+
+def MoveLine1D(axis,Pos_i,Pos_f,speed=None):
+    """ The Pos_i and Pos_f parameter are the initial and final position on the axis line they should be store in a 1D array of 
+     length 1. """
+
+    temp=axis.GetSpeed()
+    index_temp=temp.find('\r')
+    v_temp=temp[3:index_temp] 
+
+    if speed is not None :
+        axis.SetSpeed(speed)
+        print('Changed speed')
+
+    ############
+    # Initial position set
+    ############
+    axis.MoveTo(Pos_i[0])
+    time.sleep(0.5)
+
+    ############
+    # Go to final position
+    ############
+    axis.MoveToInstant(Pos_f[0])
+    WaitStatus(axis.SerialPort, '1TS000033', 1000)    
+
+    ############
+    # Reset speed
+    ############
+    axis.SetSpeed(v_temp)
 
 # --------------------------------------------------------
 
