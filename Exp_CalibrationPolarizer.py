@@ -73,37 +73,57 @@ DirectoryPath=FileControl.PrepareDirectory(GeneralPara,InstrumentsPara)
 #############################
 print('Begin acquisition')
 
-angle=np.linspace(-20,100,100)
+angle=np.linspace(0,360,360)+Motor.GetPos()
 
 IntensityData=np.zeros(len(angle))
 IntensityData2=np.zeros(len(angle))
 ErrorBar=np.zeros(len(angle))
 ErrorBar2=np.zeros(len(angle))
+AngleReel=np.zeros(len(angle))
 temp_iterator=np.nditer(angle, flags=['f_index'])
 
 print("Everything is ready")
+ax0=plt.subplot(1,3,1)
+ax1=plt.subplot(1,3,2)
+ax2=plt.subplot(1,3,3)
+color = iter(plt.cm.rainbow(np.linspace(0, 1, len(angle)+1)))
+c = next(color)
 
 Laser.StatusShutterTunable(1)
 for k in  temp_iterator:
+    c = next(color)
     Laser.StatusShutterTunable(1)
-    Motor.MoveRela(k)
-    time.sleep(2)
-    
+    Motor.MoveAbs(k)
 
-    data_Source1,t1,data_Source2,t2=LockInDevice.AcquisitionLoop(time_exp)
+    LockInDevice.AutorangeSource()
     
+    time.sleep(3)
+    
+    print('Begin acquisiton at the angle : {}'.format(k))
+    data_Source1,t1,data_Source2,t2=LockInDevice.AcquisitionLoop(time_exp)
+    print('End acquisiton')
     #############################
     # Interpolation to the same timebase
     #############################
 
     data_Source2_interp=np.interp(t1,t2,data_Source2)
     t1_scaled=(t1-t1[1])/LockInDevice.Timebase
-    plt.scatter(t1_scaled[1:],data_Source1[1:])
-    print('The motor is at the angle : {}'.format(k))
-    IntensityData[temp_iterator.index]=np.mean(data_Source1)
-    ErrorBar[temp_iterator.index]=np.std(data_Source1)
-    IntensityData2[temp_iterator.index]=np.mean(data_Source2_interp)
-    ErrorBar2[temp_iterator.index]=np.std(data_Source2_interp)
+    ax0.scatter(t1_scaled[1:],data_Source1[1:],color=c)
+    
+    IntensityData[temp_iterator.index]=np.mean(data_Source1[1:])
+    ErrorBar[temp_iterator.index]=np.std(data_Source1[1:])
+    IntensityData2[temp_iterator.index]=np.mean(data_Source2_interp[1:])
+    ErrorBar2[temp_iterator.index]=np.std(data_Source2_interp[1:])
+    AngleReel[temp_iterator.index]=Motor.GetPos()
+
+ax0.set_xlabel('Time [s]')
+ax0.set_xlabel('Intensity[V]')
+ax1.plot(angle,IntensityData)
+ax1.set_xlabel('Angle[deg]')
+ax1.set_ylabel('Intensity[V]')
+ax2.plot(angle,AngleReel)
+ax2.set_xlabel('Asked angle[deg]')
+ax2.set_ylabel('Real angle[deg]')
 
 ExportData=np.array(np.transpose([angle,IntensityData,ErrorBar,IntensityData2,ErrorBar2]))
 FileControl.ExportFileChopperOptimisation(DirectoryPath,FileNameData+'loop{}'.format(str(k)),ExportData)
