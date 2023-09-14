@@ -78,10 +78,15 @@ class RotationMotorStanda:
 		resultA = pyximx.lib.get_position(self.MotorId, byref(self.pos))
 		CurrentAngle=float(self.pos.Position / 80 + self.pos.uPosition/(256*80))
 		return CurrentAngle
-	
-#MotorIdList=Find_Motor(True)
-#Motor1=RotationMotorStanda(MotorIdList[0])
-#Motor1.MoveRela(+90)
-		
+
+if __name__ == '__main__':	
+	MotorIdList=Find_Motor(True)
+	Motor1=RotationMotorStanda(MotorIdList[1])
+	Motor1.MoveAbs(0)
+	print(Motor1.GetPos())
+	Motor1.MoveRela(+25.581)
+	print(Motor1.GetPos())
+	Motor1.MoveRela(+25.581)
+	print(Motor1.GetPos())	
 
 	
