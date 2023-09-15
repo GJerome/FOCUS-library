@@ -16,13 +16,7 @@ nb_loop=2
 PhaseChopper=400
 MotorId=1 # It can take the value of one or two depanding of which motor we are calibrating
 
-# We define the map dimension in mm
-res_xy=0.1;
-dx=0.05
-dy=0.1
 
-StartingPositionx=5
-StartingPositiony=7
 
 
 GeneralPara={'Experiment name':' PL no move','Exposition duration':time_exp,
@@ -35,7 +29,7 @@ InstrumentsPara={}
 # Initialisation of laser
 #############################
 
-Laser= las.LaserControl('COM6',2)
+Laser= las.LaserControl('COM8',2)
 
 InstrumentsPara['Laser']=Laser.parameterDict
 
@@ -43,7 +37,7 @@ InstrumentsPara['Laser']=Laser.parameterDict
 # Initialisation of Chopper
 #############################
 
-Chopper1= chop.OpticalChopper('COM14')
+Chopper1= chop.OpticalChopper('COM11')
 Chopper1.SetInternalFrequency(0)
 Chopper1.SetMotorStatus('ON')
 Chopper1.WaitForLock(10)
@@ -61,39 +55,35 @@ InstrumentsPara['Chopper']=Chopper1.parameterDict
 #print('Initialisation of z the axis')
 #z_axis=ControlConex.ConexController('COM5')
 print('Initialisation of x the axis')
-x_axis=Rtransla.ConexController('COM3')
+x_axis=Rtransla.ConexController('COM13')
 print('Initialisation of y the axis')
-y_axis=Rtransla.ConexController('COM4')
-
-#For the moment I just place myself at the middle
-x_axis.MoveTo(StartingPositionx)
-y_axis.MoveTo(StartingPositiony)
-
-# We define the position list
-x=np.arange(x_axis.Pos,x_axis.Pos+dx,res_xy)
-y=np.arange(y_axis.Pos,y_axis.Pos+dy,res_xy)
-
+y_axis=Rtransla.ConexController('COM12')
 
 
 #############################
-# Acquisition loop
+# Preparation of the directory
+#############################
+
+DirectoryPath=FileControl.PrepareDirectory(GeneralPara,InstrumentsPara)
+
+#############################
+# Printing loop
 #############################
 print('Begin acquisition')
 
-StartingPosition=np.linspace(1,11,50)
-Speedx=np.linspace(1,11,50)
+StartingPosition=np.linspace(5,11,50)
+Speedx=np.linspace(0.1,11,50)
 lengthLine=3
 
 temp_iterator=np.nditer(StartingPosition, flags=['f_index'])
 
 print("Everything is ready")
 
-Laser.StatusShutterTunable(1)
 for k in  temp_iterator:
     Laser.StatusShutterTunable(1)
     time.sleep(2)
-    Rtransla.MoveLine1D(x_axis,k,k+lengthLine,Speedx[temp_iterator.index])
-    y.Move(k)
+    Rtransla.MoveLine1D(y_axis,2,2+lengthLine,Speedx[temp_iterator.index])
+    x_axis.MoveTo(k)
     Laser.StatusShutterTunable(0)
 
 
