@@ -89,13 +89,13 @@ def MoveLine1D(axis,Pos_i,Pos_f,speed=None):
     ############
     # Initial position set
     ############
-    axis.MoveTo(Pos_i[0])
+    axis.MoveTo(Pos_i)
     time.sleep(0.5)
 
     ############
     # Go to final position
     ############
-    axis.MoveToInstant(Pos_f[0])
+    axis.MoveToInstant(Pos_f)
     WaitStatus(axis.SerialPort, '1TS000033', 1000)    
 
     ############
@@ -208,22 +208,3 @@ class ConexController:
     def CorrectNotReferencedState(self):
         self.SerialPort.write("1OR\r\n".encode()) 
         a=WaitStatus(self.SerialPort, '1TS000032', 10000)
-         
-    
-
-"""
-print('Initialisation of z the axis')
-z_axis=ConexController('COM5')
-print('Initialisation of x the axis')
-x_axis=ConexController('COM3')
-print('Initialisation of y the axis')
-y_axis=ConexController('COM4')
-
-print('Move To different position')
-Pos=np.loadtxt('PostionConex.txt')
-#GoToPositions(x_axis,y_axis,z_axis,Pos)
-Posi=[1,1]
-Posf=[5,5]
-z=5
-MoveLine(x_axis,y_axis,z_axis,Posi,Posf,z,1.5,1.5)
-"""
