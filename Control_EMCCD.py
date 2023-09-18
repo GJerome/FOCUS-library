@@ -38,7 +38,7 @@ def device_found(experiment):
 
 class LightFieldControl:
 
-    def __inti__(self,ExperimentName='Basic'):
+    def __init__(self,ExperimentName):
         # Create the LightField Application (true for visible)
         # The 2nd parameter forces LF to load with no experiment
         self.auto = Automation(True, List[String]())
@@ -47,10 +47,26 @@ class LightFieldControl:
         self.experiment = self.auto.LightFieldApplication.Experiment
     
 
-        if device_found(self.experiment) == False:
-            print("Camera not found. Please add a camera and try again.")
-            sys.exit()
+        if device_found(self.experiment) == True:
+            self.LoadExperiment(ExperimentName)
+            self.Status=True
+            #First we check if the temperature is correctly set
+            if (self.experiment.IsReadyToRun & self.experiment.IsRunning==False):
+                self.experiment.SetValue( CameraSettings.SensorTemperatureSetPoint ,-55)
 
+            # And we wait for the temperature to be settled
+            while( self.experiment.GetValue( CameraSettings.SensorTemperatureReading)!= -55):
+                time.sleep(3)
+                print('Temperature of the camera : {}'.format(self.experiment.GetValue( CameraSettings.SensorTemperatureReading)))  
+            
+        else:
+            
+            self.Status=False
+        
+
+        
+        
+        
         # First we check if the temperature is correctly set
         if (self.experiment.IsReadyToRun & self.experiment.IsRunning==False):
             self.experiment.SetValue( CameraSettings.SensorTemperatureSetPoint ,-55)
@@ -88,7 +104,10 @@ class LightFieldControl:
             return False
 
 
-emccd=LightFieldControl('Basic')
-emccd.Acquire()
+emccd=LightFieldControl(ExperimentName='Basic')
+if emccd.Status==False:
+    print("The experiment couldn't be setup please close all instance of Lightfield, check connection and retry.")
+
+#emccd.Acquire()
 
 
