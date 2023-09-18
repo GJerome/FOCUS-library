@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 #############################
 time_exp=1 # time of experiment in second
 nb_loop=2
-PhaseChopper=400
+PhaseChopper=295
 MotorId=1 # It can take the value of one or two depanding of which motor we are calibrating
 
 
