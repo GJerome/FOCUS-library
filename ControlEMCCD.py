@@ -58,26 +58,12 @@ class LightFieldControl:
             while( self.experiment.GetValue( CameraSettings.SensorTemperatureReading)!= -55):
                 time.sleep(3)
                 print('Temperature of the camera : {}'.format(self.experiment.GetValue( CameraSettings.SensorTemperatureReading)))  
+            self.LoadExperiment(ExperimentName) 
             
         else:
             
             self.Status=False
         
-
-        
-        
-        
-        # First we check if the temperature is correctly set
-        if (self.experiment.IsReadyToRun & self.experiment.IsRunning==False):
-            self.experiment.SetValue( CameraSettings.SensorTemperatureSetPoint ,-55)
-        return
-        # And we wait for the temperature to be settled
-        while( self.experiment.GetValue( CameraSettings.SensorTemperatureReading)!= -55):
-            time.sleep(3)
-            print('Temperature of the camera : {}'.format(self.experiment.GetValue( CameraSettings.SensorTemperatureReading)))
-
-        #Then we load the experiment
-        self.LoadExperiment(ExperimentName) 
 
         
     def LoadExperiment(self,Name):
@@ -103,11 +89,11 @@ class LightFieldControl:
         else:
             return False
 
-
-emccd=LightFieldControl(ExperimentName='Basic')
-if emccd.Status==False:
-    print("The experiment couldn't be setup please close all instance of Lightfield, check connection and retry.")
-
-#emccd.Acquire()
+if __name__ == "__main__":
+    emccd=LightFieldControl(ExperimentName='Basic')
+    if emccd.Status==False:
+        print("The experiment couldn't be setup please close all instance of Lightfield, check connection and retry.")
+        sys.exit()
+    emccd.Acquire()
 
 

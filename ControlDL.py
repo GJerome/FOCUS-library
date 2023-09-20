@@ -1,4 +1,3 @@
-
 ## Add some paths to the workspace
 import sys
 import os
@@ -95,7 +94,6 @@ class DelayLineObject:
 
     def GetDelay(self):
         # Get delay time compared to home position 
-        
         a=1
 
     def CheckReadyStatus(self):
@@ -120,16 +118,17 @@ class DelayLineObject:
 
     def Close(self):    
         self.DelayLine.CloseInstrument()
+    
+    def __del__(self):
+        self.DelayLine.CloseInstrument()
 
-"""DelayLine=DelayLineObject('COM3',1,0.016)
+if __name__ == "__main__":
+    DelayLine=DelayLineObject('COM3',1,0.016)
 
-DelayLine.MoveAbsolute(0)
-Pos=(DelayLine.GetPosition(),)
-DelayLine.MoveRelative(200)
-tpos=0
-while tpos<=200:
-    tpos=DelayLine.GetPosition()
-    Pos=Pos+ (tpos,)
-
-
-DelayLine.Close()"""
+    DelayLine.MoveAbsolute(0)
+    Pos=(DelayLine.GetPosition(),)
+    DelayLine.MoveRelative(200)
+    tpos=0
+    while tpos<=200:
+        tpos=DelayLine.GetPosition()
+        Pos=Pos+ (tpos,)
