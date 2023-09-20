@@ -54,7 +54,7 @@ class LightFieldControl:
         # First we check if the temperature is correctly set
         if (self.experiment.IsReadyToRun & self.experiment.IsRunning==False):
             self.experiment.SetValue( CameraSettings.SensorTemperatureSetPoint ,-55)
-
+        return
         # And we wait for the temperature to be settled
         while( self.experiment.GetValue( CameraSettings.SensorTemperatureReading)!= -55):
             time.sleep(3)
@@ -87,8 +87,5 @@ class LightFieldControl:
         else:
             return False
 
-
-emccd=LightFieldControl('Basic')
-emccd.Acquire()
 
 
