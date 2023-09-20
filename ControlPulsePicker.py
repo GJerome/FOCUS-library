@@ -17,6 +17,15 @@ class PulsePicker:
         # Connexion to the serial port
         self.RessourceManager = instco.ResourceManager('@py')
         self.Instrument=self.RessourceManager.open_resource(Adress)
+        self.RepRate=80E6/self.GetDivRatio()
+        self.Power=self.GetPower()
+        self.PulseDelay=self.GetPulseDelay()
+        self.PulseWidth=self.GetPulseWidth()
+        if self.GetTriggerState()==0:
+            self.TriggerState='Internal'
+        elif self.GetTriggerState()==1:
+            self.TriggerState='External'
+        self.parameterDict={'Repetition rate':self.RepRate,'Power': self.Power,'Pulse delay':self.PulseDelay,'Pulse width':self.PulseWidth,'Trigger': self.TriggerState}
 
 # Get functions        
     def GetDivRatio(self):

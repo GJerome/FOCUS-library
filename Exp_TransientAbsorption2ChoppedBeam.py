@@ -1,7 +1,9 @@
 import ControlLaser as las
 import ControlChopper as chop
 import ControlLockInAmplifier as lock
-import ControlConex as Rtransla
+import ControlPulsePicker as PuPi
+import ControlEMCCD as emccd
+import ControlDL as dl
 
 import numpy as np
 
@@ -52,6 +54,10 @@ InstrumentsPara['Laser']=Laser.parameterDict
 # Initialisation of the Pulse Picker
 #############################
 
+PulsePicker=PuPi.PulsePicker()
+
+InstrumentsPara['Pulse picker']=PulsePicker.parameterDict
+
 #############################
 # Initialisation of lock-in amplifier
 #############################
@@ -66,9 +72,24 @@ print('Set up lock-in output 1 and 2')
 InstrumentsPara['Lock-in-amplifier']=LockInDevice.parameterDict
 
 #############################
+# Initialisation of the EMCCD
+#############################
+
+camera=emccd.LightFieldControl('TransientAbs2beam')
+
+#############################
+# Initialisation of the delay line
+#############################
+
+DelayLine=dl.DelayLineObject('COM3',1,0.016)
+PosZero=0 # postion at which both pulse are synchronised
+DelayLine.MoveAbsolute(PosZero)
+
+#############################
 # Initialisation of Choppers
 #############################
 
+# Chopper Probe 
 Chopper1= chop.OpticalChopper('COM14')
 Chopper1.SetInternalFrequency(0)
 Chopper1.SetMotorStatus('ON')
@@ -78,7 +99,7 @@ Chopper1.parameterDict['Phase']=PhaseChopperProbe
 
 InstrumentsPara['ChopperProbe']=Chopper1.parameterDict
 
-
+# Chopper Pump 
 Chopper1= chop.OpticalChopper('COM14')
 Chopper1.SetInternalFrequency(0)
 Chopper1.SetMotorStatus('ON')
@@ -89,25 +110,6 @@ Chopper1.parameterDict['Phase']=PhaseChopperPump
 InstrumentsPara['ChopperPump']=Chopper1.parameterDict
 
 
-#############################
-# Conex Controller initialisation
-#############################
-
-# We then initalize the axis
-#print('Initialisation of z the axis')
-#z_axis=ControlConex.ConexController('COM5')
-print('Initialisation of x the axis')
-x_axis=Rtransla.ConexController('COM3')
-print('Initialisation of y the axis')
-y_axis=Rtransla.ConexController('COM4')
-
-#For the moment I just place myself at the middle
-x_axis.MoveTo(StartingPositionx)
-y_axis.MoveTo(StartingPositiony)
-
-# We define the position list
-x=np.arange(x_axis.Pos,x_axis.Pos+dx,res_xy)
-y=np.arange(y_axis.Pos,y_axis.Pos+dy,res_xy)
 
 #############################
 # Preparation of the directory
