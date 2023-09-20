@@ -59,6 +59,7 @@ InstrumentsPara['Laser']=Laser.parameterDict
 LockInDevice=lock.LockInAmplifier(LockInParaFile)
 
 # Set output 1 and two
+LockInDevice.SetOutputTA()
 
 print('Set up lock-in output 1 and 2')
 

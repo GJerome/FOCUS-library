@@ -138,4 +138,36 @@ class LockInAmplifier:
     def AutorangeSource(self):
         a=self.SetPathValue('/dev2940/sigins/0/autorange', 1)
         a=self.SetPathValue('/dev2940/sigins/1/autorange', 1)
-        
+
+    def SetOutputTA(self,TriggerInput):
+        ''' Prepare output depanding on the source that is used for trigger.
+        '''
+        #Output 1
+        self.SetPathValue('/dev2940/sigouts/0/on', 1)
+        self.SetPathValue('/dev2940/sigouts/0/range', 1.5)
+        self.SetPathValue('/dev2940/sigouts/0/offset', 0.75)
+        self.SetPathValue('/dev2940/sigouts/0/amplitudes/3', 0.75)
+        self.SetPathValue('/dev2940/sigouts/0/enables/3', 1)
+
+        #Output 2
+        self.SetPathValue('/dev2940/sigouts/1/on', 1)
+        self.SetPathValue('/dev2940/sigouts/1/range', 1.5)
+        self.SetPathValue('/dev2940/sigouts/1/offset', 0.75)
+        self.SetPathValue('/dev2940/sigouts/1/amplitudes/7', 0.75)
+        self.SetPathValue('/dev2940/sigouts/0/enables/7', 1)
+
+        # Ensure extref lock in
+        self.SetPathValue('/dev2940/extrefs/0/enable', 1)
+        self.SetPathValue('/dev2940/extrefs/1/enable', 1)
+        # Ensure that the trigger is selected
+        if TriggerInput=='Trigger1':
+            self.SetPathValue('/dev2940/demods/3/adcselect', 2)
+            self.SetPathValue('/dev2940/demods/7/adcselect', 2)
+        elif TriggerInput=='Trigger2':
+            self.SetPathValue('/dev2940/demods/3/adcselect', 3)
+            self.SetPathValue('/dev2940/demods/7/adcselect', 3)
+
+LockInParaFile='ParameterLockInTA.txt'
+
+lock=LockInAmplifier(LockInParaFile)
+lock.SetOutputTA('Trigger1')
