@@ -54,7 +54,7 @@ InstrumentsPara['Laser']=Laser.parameterDict
 # Initialisation of the Pulse Picker
 #############################
 
-PulsePicker=PuPi.PulsePicker()
+PulsePicker=PuPi.PulsePicker("USB0::0x0403::0xC434::S09748-10A7::INSTR")
 
 InstrumentsPara['Pulse picker']=PulsePicker.parameterDict
 
