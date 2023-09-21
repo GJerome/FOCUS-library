@@ -85,12 +85,16 @@ class DelayLineObject:
     def MoveRelative(self,MoveDistance):
         self.CheckReadyStatus()
         self.DelayLine.PR_Set(MoveDistance)
-
-    def GetPosition(self, Dowait):
-
+        
+        '''    def GetPosition(self, Dowait):
         Pos=self.DelayLine.TP()[1]
         if Dowait==True: time.sleep(self.wait)
+        return Pos'''
+
+    def GetPosition(self):
+        Pos=self.DelayLine.TP()[1]
         return Pos
+
 
     def GetDelay(self):
         # Get delay time compared to home position 
@@ -115,12 +119,9 @@ class DelayLineObject:
                 sys.exit('Problem while getting the status of the controller during initialisation- exectution aborted')
 
             time.sleep(self.wait)
-
-    def Close(self):    
-        self.DelayLine.CloseInstrument()
     
     def __del__(self):
-        self.DelayLine.CloseInstrument()
+        self.DelayLine.CloseInstrument
 
 if __name__ == "__main__":
     DL=DelayLineObject('COM16',1,0.016)
