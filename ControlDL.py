@@ -123,12 +123,12 @@ class DelayLineObject:
         self.DelayLine.CloseInstrument()
 
 if __name__ == "__main__":
-    DelayLine=DelayLineObject('COM3',1,0.016)
+    DL=DelayLineObject('COM16',1,0.016)
 
-    DelayLine.MoveAbsolute(0)
-    Pos=(DelayLine.GetPosition(),)
-    DelayLine.MoveRelative(200)
+    DL.MoveAbsolute(0)
+    Pos=(DL.GetPosition(),)
+    DL.MoveRelative(200)
     tpos=0
     while tpos<=200:
-        tpos=DelayLine.GetPosition()
+        tpos=DL.GetPosition()
         Pos=Pos+ (tpos,)
