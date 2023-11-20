@@ -79,6 +79,7 @@ class DelayLineObject:
             print("\n Positive limit : {} \n Negative limit {} \n".format(self.NegativeLimit,self.PositiveLimit))
 
     def MoveAbsolute(self,MoveDistance):
+        '''Absolutute move to a specific given value. Units are mm.'''
         self.CheckReadyStatus()
         self.DelayLine.PA_Set(MoveDistance)
 

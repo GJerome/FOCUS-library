@@ -10,10 +10,10 @@ import time
 #############################
 # Global parameter
 #############################
-time_exp=60*30 # time of experiment in second
-time_sleep=6
-nb_loop=2
-PhaseCalib=200
+time_exp=60*10 # time of experiment in second
+time_sleep=5*10
+nb_loop=3
+PhaseCalib=85
 
 FileNameData='DataPerformTinPerov_'
 
@@ -35,22 +35,22 @@ InstrumentsPara['Lock-in-amplifier']=LockInDevice.parameterDict
 # Initialisation of laser
 #############################
 
-Laser= las.LaserControl('COM6',2)
+Laser= las.LaserControl('COM8',2)
 
 InstrumentsPara['Laser']=Laser.parameterDict
 
 #############################
 # Initialisation of Chopper
 #############################
-
-Chopper1= chop.OpticalChopper('COM14')
+'''
+Chopper1= chop.OpticalChopper('COM15')
 Chopper1.SetInternalFrequency(0)
 Chopper1.SetMotorStatus('ON')
 Chopper1.SetPhase(PhaseCalib)
 Chopper1.WaitForLock(10)
 
 InstrumentsPara['Chopper']=Chopper1.parameterDict
-
+'''
 
 #############################
 # Preparation of the directory

@@ -12,10 +12,10 @@ import matplotlib.pyplot as plt
 #############################
 # Global parameter
 #############################
-time_exp=1 # time of experiment in second
+time_exp=2 # time of experiment in second
 nb_loop=2
 PhaseChopper=295
-MotorId=0 # It can take the value of one or two depanding of which motor we are calibrating
+MotorId=1 # It can take the value of one or two depanding of which motor we are calibrating
 
 FileNameData='DataChopperOptimisation_'
 
@@ -44,7 +44,7 @@ InstrumentsPara['Laser']=Laser.parameterDict
 #############################
 # Initialisation of Chopper
 #############################
-
+'''
 Chopper1= chop.OpticalChopper('COM11')
 Chopper1.SetInternalFrequency(0)
 Chopper1.SetMotorStatus('ON')
@@ -53,6 +53,7 @@ Chopper1.SetPhase(PhaseChopper)
 Chopper1.parameterDict['Phase']=PhaseChopper
 
 InstrumentsPara['Chopper']=Chopper1.parameterDict
+'''
 
 #############################
 # Initialisation of the polariser
