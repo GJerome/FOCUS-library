@@ -42,7 +42,7 @@ InstrumentsPara['Laser']=Laser.parameterDict
 # Initialisation of Chopper
 #############################
 
-Chopper1= chop.OpticalChopper('COM11')
+Chopper1= chop.OpticalChopper('COM15')
 Chopper1.SetInternalFrequency(0)
 Chopper1.SetMotorStatus('ON')
 Chopper1.WaitForLock(10)
@@ -60,7 +60,7 @@ DirectoryPath=FileControl.PrepareDirectory(GeneralPara,InstrumentsPara)
 #############################
 print('Begin acquisition')
 #angle=range(0,360,0.1)
-angle=np.arange(0,3600,5)
+angle=np.arange(0,420,1)
 
 IntensityData=np.zeros(len(angle))
 IntensityData2=np.zeros(len(angle))
@@ -73,7 +73,7 @@ print("Everything is ready")
 Laser.StatusShutterTunable(1)
 for k in  temp_iterator:
     Laser.StatusShutterTunable(1)
-    #LockInDevice.AutorangeSource()
+    LockInDevice.AutorangeSource()
     Chopper1.SetPhase(np.round(k, decimals=2))
     Chopper1.WaitForLock(10)
     time.sleep(2)
