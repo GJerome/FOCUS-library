@@ -136,8 +136,9 @@ class LockInAmplifier:
         return self.parameterDict
 
     def AutorangeSource(self):
-        a=self.SetPathValue('/dev2940/sigins/0/autorange', 1)
         a=self.SetPathValue('/dev2940/sigins/1/autorange', 1)
+        a=self.SetPathValue('/dev2940/sigins/0/autorange', 1)
+        
 
     def SetOutputTA(self,TriggerInput):
         ''' Prepare output depanding on the source that is used for trigger.
@@ -167,7 +168,8 @@ class LockInAmplifier:
             self.SetPathValue('/dev2940/demods/3/adcselect', 3)
             self.SetPathValue('/dev2940/demods/7/adcselect', 3)
 
-LockInParaFile='ParameterLockInTA.txt'
+if __name__ == "__main__":
+    LockInParaFile='ParameterLockInTA.txt'
 
-lock=LockInAmplifier(LockInParaFile)
-lock.SetOutputTA('Trigger1')
+    lock=LockInAmplifier(LockInParaFile)
+    lock.SetOutputTA('Trigger1')

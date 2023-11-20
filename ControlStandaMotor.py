@@ -6,7 +6,9 @@ import sys
 
 # Load library
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)),"DLL_file"))
+
 import pyximc as pyximx
+
 
 def Find_Motor(vertabatum=False):
 	"""If verbatum is set to true the function will output the COM port name."""
@@ -19,6 +21,7 @@ def Find_Motor(vertabatum=False):
 
 	dev_count = pyximx.lib.get_device_count(devenum)
 	if dev_count==0: 
+		print('No motor zhere found, check usb connection')
 		sys.exit()
 
 	print("There is currently {} device".format(repr(dev_count)))
