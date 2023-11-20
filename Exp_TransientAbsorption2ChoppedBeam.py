@@ -11,6 +11,10 @@ import FileControl
 import time
 import matplotlib.pyplot as plt
 
+def Time2distance(t,NbPath):
+    '''This function take delay time t[s] as an argument but also the nomber of path the light make and convert it in a distance usable by the delay line.'''
+    return 2.99705*1E8*t*NbPath 
+
 #############################
 # Global parameter
 #############################
@@ -18,24 +22,18 @@ time_exp=1 # time of experiment in second
 nb_loop=2
 PhaseChopperProbe=295
 PhaseChopperPump=400
-MotorId=1 # It can take the value of one or two depanding of which motor we are calibrating
+
+Delaymax=1E-9
 
 # We define the map dimension in mm
-res_xy=0.1;
-dx=0.05
-dy=0.1
-
-StartingPositionx=5
-StartingPositiony=7
-
 
 
 FileNameData='DataTransientAbsTwoBeam_'
 
 LockInParaFile='ParameterLockInTA.txt'
 
-GeneralPara={'Experiment name':' PL no move','Exposition duration':time_exp,
-             'Number of loop':nb_loop}
+GeneralPara={'Experiment name':' TA 2chopped beam','Exposure duration':time_exp,
+             'Number of loop':nb_loop,'Delay max':Delaymax}
 
 
 InstrumentsPara={}
@@ -81,7 +79,7 @@ camera=emccd.LightFieldControl('TransientAbs2beam')
 # Initialisation of the delay line
 #############################
 
-DelayLine=dl.DelayLineObject('COM3',1,0.016)
+DelayLine=dl.DelayLineObject('COM16',1,0.016)
 PosZero=0 # postion at which both pulse are synchronised
 DelayLine.MoveAbsolute(PosZero)
 
@@ -121,23 +119,21 @@ DirectoryPath=FileControl.PrepareDirectory(GeneralPara,InstrumentsPara)
 # Acquisition loop
 #############################
 print('Begin acquisition')
+Total_delay=np.linspace(0,Delaymax,100)
 
-StartingPosition=np.linspace(1,11,50)
-Speedx=np.linspace(1,11,50)
-lengthLine=3
-
-temp_iterator=np.nditer(StartingPosition, flags=['f_index'])
+temp_iterator=np.nditer(Total_delay, flags=['f_index'])
 
 print("Everything is ready")
 
 Laser.StatusShutterTunable(1)
-for k in  temp_iterator:
-    Laser.StatusShutterTunable(1)
-    time.sleep(2)
-    Rtransla.MoveLine1D(x_axis,k,k+lengthLine,Speedx[temp_iterator.index])
-    y.Move(k)
-    Laser.StatusShutterTunable(0)
 
+t=(time.time(),)
+for k in  temp_iterator:
+    t=t+(time.time(),)
+    DelayLine.MoveRelative(Time2distance(k,2))
+    camera.Acquire()
+    
+Laser.StatusShutterTunable(0)
 
 
 
