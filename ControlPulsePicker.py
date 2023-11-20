@@ -32,7 +32,6 @@ class PulsePicker:
         #self.Instrument.read_termination = "\r\x00"
 
         
-        print(self.GetDivRatio())
         try:
             self.RepRate=80E6/self.GetDivRatio()
         except TypeError:
@@ -73,7 +72,7 @@ class PulsePicker:
     def SetPower(self,Power):
         '''Set pulse power to xxx. Power value is scaled in mW, 0.1W steps.'''
         self.WriteCommand('POWER{}'.format(str(Power)))    
-    def SetPower(self,PWIDTH):
+    def SetPulseWidth(self,PWIDTH):
         '''Set pulse width to xxx. Value is scaled in 0.1 ns steps. Range: 40-150(4-15 ns)'''
         self.WriteCommand('PWIDTH{}'.format(str(PWIDTH)))
     def SetPulseDelay(self,PWIDTH):
@@ -103,3 +102,5 @@ if __name__ == "__main__":
     #FindDevice()
     pp=PulsePicker("USB0::0x0403::0xC434::S09748-10A7::INSTR")
     print(pp.parameterDict)
+    pp.SetPower(17500)
+    print(pp.GetPower())
