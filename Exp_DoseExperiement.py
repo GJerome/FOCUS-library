@@ -110,7 +110,8 @@ for k in  IteratorFreq:
         t1_scaled=(t1-t1[1])/LockInDevice.Timebase
 
         export_data=(t1_scaled,Reflectivity,data_Source2_interp,data_Source1)
-        FileControl.ExportFileLockIn(DirectoryPath,FileNameData+'DivRatio{}Power{}'.format(str(k),str(j)),export_data)
+        FileControl.ExportFileLockIn(DirectoryPath,FileNameData+'DivRatio{}Power{}'.format(str(k),str(np.round(j,2))),export_data)
       
         Laser.StatusShutterTunable(0)
+    IteratorPower.reset()
     
