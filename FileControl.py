@@ -9,7 +9,7 @@ from tkinter.filedialog import askdirectory
 
 def ExportFileLockIn(path,FileName,data):
     date=datetime.today().strftime('%Y-%m-%d')
-    np.savetxt(path+'/'+date+FileName+'txt',data,header='Timestamps \t S2/S1 \t S2 \t S1')
+    np.savetxt(path+'/'+date+FileName+'.txt',data,header='Timestamps \t S2/S1 \t S2 \t S1')
 
 def ExportFileChopperOptimisation(path,FileName,data):
     date=datetime.today().strftime('%Y-%m-%d')
