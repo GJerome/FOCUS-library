@@ -28,7 +28,7 @@ LockInParaFile='ParameterLockIn.txt'
 
 GeneralPara={'Experiment name':' Dose experiment','Dwelling time':Dwell_Time,
              'Frequency sweep':Freq,'Number points frequency sweep':Nb_pts_freq,
-             'Power sweep':PowerSweep,'Number points frequency sweep':Nb_pts_power,
+             'Power sweep':PowerSweep,'Number points power sweep':Nb_pts_power,
              'Note':'The SHG unit from Coherent was used'}
 
 InstrumentsPara={}
@@ -79,11 +79,11 @@ DirectoryPath=FileControl.PrepareDirectory(GeneralPara,InstrumentsPara)
 print('')
 
 x_pos=np.linspace(PositionCube[0],PositionCube[0]+PositionCube[2],Nb_pts_freq)
-FreqSweep=np.linspace(int(80E6/Freq[0]),int(80E6/Freq[1]),Nb_pts_freq)
+FreqSweep=np.linspace(int(80E6/Freq[0]),int(80E6/Freq[1]),Nb_pts_freq,dtype=np.dtype(int))
 IteratorFreq=np.nditer(FreqSweep, flags=['f_index'])
-print(FreqSweep)
+
 y_pos=np.linspace(PositionCube[1],PositionCube[1]+PositionCube[3],Nb_pts_power)
-PowerSweep=np.linspace(PowerSweep[0],PowerSweep[1],Nb_pts_power)
+PowerSweep=np.linspace(PowerSweep[0],PowerSweep[1],Nb_pts_power,dtype=np.dtype(int))
 IteratorPower=np.nditer(PowerSweep, flags=['f_index'])
 
 print("Begin acquisition")
@@ -94,10 +94,9 @@ for k in  IteratorFreq:
 
     for j in IteratorPower:       
         y_axis.MoveTo(x_pos[IteratorPower.index])
-        print('Freq:{},Power:{}'.format(IteratorFreq.index,IteratorPower.index))
         pp.SetPower(j)
         print('Laser on the sample with a div ratio of {} and a power of {}'.format(pp.GetDivRatio(),pp.GetPower())) 
-        Laser.StatusShutterTunable(1)
+        #Laser.StatusShutterTunable(1)
 
         data_Source1,t1,data_Source2,t2=LockInDevice.AcquisitionLoop(Dwell_Time)
 
@@ -112,6 +111,6 @@ for k in  IteratorFreq:
         export_data=(t1_scaled,Reflectivity,data_Source2_interp,data_Source1)
         FileControl.ExportFileLockIn(DirectoryPath,FileNameData+'DivRatio{}Power{}'.format(str(k),str(np.round(j,2))),export_data)
       
-        Laser.StatusShutterTunable(0)
+        #Laser.StatusShutterTunable(0)
     IteratorPower.reset()
     
