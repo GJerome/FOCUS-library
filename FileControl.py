@@ -7,9 +7,19 @@ import matplotlib as mat
 import tkinter as tk
 from tkinter.filedialog import askdirectory
 
+def AskDirectory():
+    path = askdirectory(title='Select Folder')
+    return path
+
+
 def ExportFileLockIn(path,FileName,data):
     date=datetime.today().strftime('%Y-%m-%d')
     np.savetxt(path+'/'+date+FileName+'.txt',data,header='Timestamps \t S2/S1 \t S2 \t S1')
+
+def ExportFileBeamSpotSize(path,FileName,data):
+    print(path)
+    date=datetime.today().strftime('%Y-%m-%d')
+    np.savetxt(path+'/'+date+FileName+'.txt',data,header='S1 \t Std S1 \t S2 \t Std S2 \t ypos')
 
 def ExportFileChopperOptimisation(path,FileName,data):
     date=datetime.today().strftime('%Y-%m-%d')
@@ -119,9 +129,7 @@ def ImportIMGFile(path,FileName,verbatum,graphs):
     Final={'Data':Data,'TimeRange':Time,'TimeUnit':TimeUnit[1],'SpaceRange':x,'SpaceUnit':XUnit[1]}
     return Final
 
-def AskDirectory():
-    path = askdirectory(title='Select Folder')
-    return path
+
 
 def PrepareDirectory(GeneralExperimentParameter,Intruments):
     """ This methods create and save all the parameter of the intruments. 
@@ -149,4 +157,29 @@ def PrepareDirectory(GeneralExperimentParameter,Intruments):
 
     return path
 
+# Print iterations progress
+def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        length      - Optional  : character length of bar (Int)
+        fill        - Optional  : bar fill character (Str)
+        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+    """
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filledLength = int(length * iteration // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end = printEnd)
+    # Print New Line on Complete
+    if iteration == total: 
+        print()
 
+if __name__ == "__main__":
+    GeneralPara={}
+    InstrumentsPara={}
+    print(PrepareDirectory(GeneralPara,InstrumentsPara))
