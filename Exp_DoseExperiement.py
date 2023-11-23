@@ -13,9 +13,9 @@ os.system('cls')
 # Global parameter
 #############################
 
-Dwell_Time=10 # time of experiment in second
+Dwell_Time=60 # time of experiment in second
 # We create a test zone define by the  PositionCube variable, on the x_axis we do a frequency sweep and on the y axis a power sweep
-PositionCube=[5 ,9,1,1]# [x_start y_start x_length y_length]
+PositionCube=[7 ,10,1,1]# [x_start y_start x_length y_length]
 Freq=[8E3,8E6] # [starting frequency, end frequency] the actual unit send is the cast int of 80E6/Freq which is the division ratio 
 Nb_pts_freq=10
 PowerSweep=[500,17500] #[Starting power, end power] in mw
@@ -93,11 +93,11 @@ for k in  IteratorFreq:
     pp.SetDivRatio(k) 
 
     for j in IteratorPower:       
-        y_axis.MoveTo(x_pos[IteratorPower.index])
+        y_axis.MoveTo(y_pos[IteratorPower.index])
         pp.SetPower(j)
         print('Laser on the sample with a div ratio of {} and a power of {}'.format(pp.GetDivRatio(),pp.GetPower())) 
-        #Laser.StatusShutterTunable(1)
-
+        Laser.StatusShutterTunable(1)
+        LockInDevice.AutorangeSource()
         data_Source1,t1,data_Source2,t2=LockInDevice.AcquisitionLoop(Dwell_Time)
 
         #############################
@@ -111,6 +111,6 @@ for k in  IteratorFreq:
         export_data=(t1_scaled,Reflectivity,data_Source2_interp,data_Source1)
         FileControl.ExportFileLockIn(DirectoryPath,FileNameData+'DivRatio{}Power{}'.format(str(k),str(np.round(j,2))),export_data)
       
-        #Laser.StatusShutterTunable(0)
+        Laser.StatusShutterTunable(0)
     IteratorPower.reset()
     

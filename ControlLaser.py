@@ -35,7 +35,7 @@ class LaserControl:
       
     def GetWavelength(self):
         self.SerialPort.write("?WV\r\n".encode())
-        status = self.SerialPort.readline().decode().rstrip()
+        status = self.SerialPort.readline().decode().rstrip().split(' ')[-1]
         return status
     
     def GetPowerTunable(self):
@@ -57,10 +57,10 @@ class LaserControl:
         self.SerialPort.write("S={} \r\n".format(status).encode())
         time.sleep(self.ShutterWaitTime)
         self.ShutterTunable=self.GetStatusShutterTunable()
-        if self.ShutterTunable==0:
-            print("The shutter for the tunable output is closed: {}".format(self.GetStatusShutterTunable()))
-        if self.ShutterTunable==1:
-            print("The shutter for the tunable output is opened : {}".format(self.GetStatusShutterTunable()))
+        if self.GetStatusShutterTunable()==0:
+            print("The shutter for the tunable output is closed")
+        if self.GetStatusShutterTunable()==1:
+            print("The shutter for the tunable output is opened")
 
     ###########################
     # Fixed output
@@ -97,4 +97,6 @@ class LaserControl:
         return self.parameterDict
 
 
-
+if __name__ == "__main__":
+    Laser= LaserControl('COM8',2)
+    print(Laser.GetWavelength())
