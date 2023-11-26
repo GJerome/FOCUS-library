@@ -137,7 +137,9 @@ class LockInAmplifier:
 
     def AutorangeSource(self):
         a=self.SetPathValue('/dev2940/sigins/1/autorange', 1)
+        time.sleep(3)
         a=self.SetPathValue('/dev2940/sigins/0/autorange', 1)
+        time.sleep(3)
         
 
     def SetOutputTA(self,TriggerInput):
