@@ -18,8 +18,8 @@ Dwell_Time=0.1 # timefor each point in second
 # We create a test zone define by the  PositionCube variable, on the x_axis we do a frequency sweep and on the y axis a power sweep
 PositionCube=[1.5 ,4,1,0.2]# [x_start y_start x_length y_length]
 Nb_pts_x=1# Maximum resolution is 0.1um and bi repedability is 2um 
-Nb_pts_y=100# Maximum resolution is 0.1um and bi repedability is 2um 
-AffineTiltCorrection=0.05760828305799448
+Nb_pts_y=1000# Maximum resolution is 0.1um and bi repedability is 2um 
+AffineTiltCorrection=0.004802977719538041
 
 
 
