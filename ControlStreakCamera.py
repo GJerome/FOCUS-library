@@ -30,7 +30,7 @@ class StreakCamera:
         if IniFile!=None:
             self.Sendcommand('AppStart(1,'+IniFile+',2)',1024)
         else:
-            print('No specific experiement was specified loading default.')
+            print('No specific experiment was specified loading default.')
             try:
                 self.Sendcommand('AppStart(1,C:\ProgramData\Hamamatsu\HPDTA\HPDTA8.ini,2)',1024)
             except:
@@ -51,11 +51,18 @@ class StreakCamera:
 
     def AcqStatus(self):
         '''Return True if a acquisition is taking place.'''
-        a=self.Sendcommand('AcqStatus()',1024)
+        a=self.Sendcommand('AcqStatus()',2048)
+        print(a.split(','))
         if a.split(',')[2]=='busy':
+            print('busy')
             return True
         else:
             return False
+    
+    def AsyncStatus(self):
+        a=self.Sendcommand('AsyncCommandStatus()',1024)
+        print(a)
+        
 
 ####################################
 # Raw command related methods
@@ -84,6 +91,7 @@ class StreakCamera:
 ####################################
         
     def __del__(self):
+        
         if self.AcqStatus():
             print('Something took place')
             self.AcqStop()
@@ -109,6 +117,6 @@ if __name__ == "__main__":
     #IsPortOpen()
     sc=StreakCamera(PortCmd=1001,PortData=1002,Buffer=1024,IniFile='C:\ProgramData\Hamamatsu\HPDTA\Test.ini')
     sc.AcqStart('Live')
-    time.sleep(10)
+    time.sleep(5)
     #print(sc.Sendcommand('AppStart(True)',1024))
     #print(sc.Sendcommand("MainParamGet(GateMode)",1024))
