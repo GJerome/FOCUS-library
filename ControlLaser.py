@@ -100,3 +100,5 @@ class LaserControl:
 if __name__ == "__main__":
     Laser= LaserControl('COM8',2)
     print(Laser.GetWavelength())
+    Laser.SerialPort.write("?SN\r\n".encode())
+    print(Laser.SerialPort.readline().decode().rstrip())

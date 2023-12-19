@@ -52,7 +52,7 @@ DirectoryPath=FileControl.PrepareDirectory(GeneralPara,InstrumentsPara)
 #############################
 # Variable creation
 #############################
-distance=np.linspace(0,225,50)
+distance=np.linspace(100,160,3000)
 RecordedPosition=np.zeros(len(distance))
 IntensityData=np.zeros(len(distance))
 IntensityData2=np.zeros(len(distance))
