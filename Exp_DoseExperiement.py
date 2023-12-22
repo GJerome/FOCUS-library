@@ -15,11 +15,11 @@ os.system('cls')
 
 Dwell_Time=60 # time of experiment in second
 # We create a test zone define by the  PositionCube variable, on the x_axis we do a frequency sweep and on the y axis a power sweep
-PositionCube=[7 ,10,1,1]# [x_start y_start x_length y_length]
-Freq=[8E3,8E6] # [starting frequency, end frequency] the actual unit send is the cast int of 80E6/Freq which is the division ratio 
-Nb_pts_freq=10
-PowerSweep=[500,17500] #[Starting power, end power] in mw
-Nb_pts_power=10
+PositionCube=[10 ,0,0.1,0.1]# [x_start y_start x_length y_length]
+Freq=[8E3,800E6] # [starting frequency, end frequency] the actual unit send is the cast int of 80E6/Freq which is the division ratio 
+Nb_pts_freq=5
+PowerSweep=[500,4100] #[Starting power, end power] in mw
+Nb_pts_power=5
 
 
 FileNameData='DataDoseExperiement_'
@@ -62,8 +62,8 @@ print('Initialised pulse picker')
 #############################
 
 
-x_axis=Rtransla.ConexController('COM13')
-y_axis=Rtransla.ConexController('COM12')
+x_axis=Rtransla.ConexController('COM12')
+y_axis=Rtransla.ConexController('COM13')
 print('Initialised rough translation stage')
 
 #############################
