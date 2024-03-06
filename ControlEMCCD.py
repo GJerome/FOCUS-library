@@ -50,6 +50,7 @@ class LightFieldControl:
         if device_found(self.experiment) == True:
             self.LoadExperiment(ExperimentName)
             self.Status=True
+            
             #First we check if the temperature is correctly set
             if (self.experiment.IsReadyToRun & self.experiment.IsRunning==False):
                 self.experiment.SetValue( CameraSettings.SensorTemperatureSetPoint ,-55)
@@ -90,10 +91,8 @@ class LightFieldControl:
             return False
 
 if __name__ == "__main__":
-    emccd=LightFieldControl(ExperimentName='Basic')
+    emccd=LightFieldControl(ExperimentName='TimeTraceEM')
     if emccd.Status==False:
         print("The experiment couldn't be setup please close all instance of Lightfield, check connection and retry.")
         sys.exit()
     emccd.Acquire()
-
-
