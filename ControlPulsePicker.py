@@ -27,7 +27,7 @@ class PulsePicker:
             print(err)
             return
         #self.Instrument.baud_rate = 38400
-        self.Instrument.timeout = 100
+        self.Instrument.timeout = 1
         #self.Instrument.write_termination = "\r\x00"
         #self.Instrument.read_termination = "\r\x00"
         print('Done')
