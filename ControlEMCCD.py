@@ -1,6 +1,7 @@
 # This file allows the control of the EMCCD using the lightfield 
 
 import clr
+clr.AddReference('System')
 import sys
 import os
 import time
@@ -25,6 +26,7 @@ from PrincetonInstruments.LightField.Automation import Automation
 from PrincetonInstruments.LightField.AddIns import ExperimentSettings
 from PrincetonInstruments.LightField.AddIns import DeviceType
 from PrincetonInstruments.LightField.AddIns import CameraSettings
+from PrincetonInstruments.LightField.AddIns import SensorTemperatureStatus
 
 def device_found(experiment):
     # Find connected device
@@ -50,15 +52,17 @@ class LightFieldControl:
         if device_found(self.experiment) == True:
             self.LoadExperiment(ExperimentName)
             self.Status=True
-            
+
             #First we check if the temperature is correctly set
             if (self.experiment.IsReadyToRun & self.experiment.IsRunning==False):
-                self.experiment.SetValue( CameraSettings.SensorTemperatureSetPoint ,-55)
-
+                try:
+                    self.experiment.SetValue(CameraSettings.SensorTemperatureSetPoint,-55)
+                except Exception as e:
+                    return e
             # And we wait for the temperature to be settled
-            while( self.experiment.GetValue( CameraSettings.SensorTemperatureReading)!= -55):
+            while( self.experiment.GetValue(CameraSettings.SensorTemperatureReading)!= -55):
                 time.sleep(3)
-                print('Temperature of the camera : {}'.format(self.experiment.GetValue( CameraSettings.SensorTemperatureReading)))  
+                print('Temperature of the camera : {}'.format(self.experiment.GetValue(CameraSettings.SensorTemperatureReading)))  
             self.LoadExperiment(ExperimentName) 
             
         else:
@@ -95,4 +99,5 @@ if __name__ == "__main__":
     if emccd.Status==False:
         print("The experiment couldn't be setup please close all instance of Lightfield, check connection and retry.")
         sys.exit()
-    emccd.Acquire()
+    if emccd.Status==True:
+        emccd.Acquire()
