@@ -41,27 +41,81 @@ class StreakCamera:
 ####################################
 # Acquisition related command
 ####################################
-    def AcqStart(self,AcqMode=str):
+    def StartAcq(self,AcqMode=str):
         '''Start acquisition in the mode specified by AcqMode, as a safety the int time is set at 100ms for the moment.\n
         AcqMode can take the value Live,Acquire,AI for analog integration,Pc for single photon counting.'''
         self.Sendcommand('AcqStart('+AcqMode+')',1024)
+        self.AsyncStatusReady()
 
-    def AcqStop(self):
+    def StartSeq(self,AcqMode,NbrSeq):
+        self.Sendcommand('SeqParamSet(AcquisitionMode,'+str(AcqMode)+')',1024)
+        self.Sendcommand('SeqParamSet(NoOfLoops,'+str(NbrSeq)+')',1024)
+        self.Sendcommand('SeqStart()',1024)
+
+    def StopAcq(self):
         self.Sendcommand('AcqStop()',1024)
+        self.AsyncStatusReady()
 
-    def AcqStatus(self):
-        '''Return True if a acquisition is taking place.'''
-        a=self.Sendcommand('AcqStatus()',2048)
-        print(a.split(','))
-        if a.split(',')[2]=='busy':
-            print('busy')
-            return True
-        else:
-            return False
+    def SaveImg(self,Folder):
+        self.AcqStatusReady()
+        print('Saving')
+        self.Sendcommand('ImgSave(Current,IMG,'+Folder+',1)',1024)
+        self.AsyncStatusReady()
+
+    def SaveSeq(self,Folder):
+        self.AcqStatusReady()
+        print('Saving sequence')
+        self.Sendcommand('SeqSave(IMG,'+Folder+')',1024)
+        self.AsyncStatusReady()
+
+    def Set_NumberIntegration(self,Mode,Nbr):
+        a=self.Sendcommand('CamParamSet('+str(Mode)+',NrExposures,'+str(Nbr)+')',1024)
     
-    def AsyncStatus(self):
-        a=self.Sendcommand('AsyncCommandStatus()',1024)
-        print(a)
+    def BckgSubstraction(self):
+        self.AcqStatusReady()
+        a=self.Sendcommand('CorDoCorrection(Current,Background)',1024)
+
+####################################
+# Shutter
+####################################
+    def ShutterOpen(self):
+        self.Sendcommand('DevParamSet(TD,Shutter,Open)',1024)
+        time.sleep(5)
+
+    def ShutterClose(self):
+        self.Sendcommand('DevParamSet(TD,Shutter,Closed)',1024)
+        time.sleep(5)
+####################################
+# Status
+####################################
+        
+    def AcqStatusReady(self):
+        '''Return True if a acquisition is taking place.'''
+        
+        while True:
+            a=self.Sendcommand('AcqStatus()',2048)
+            if a.split(',')[1]=='AcqStatus' and a.split(',')[2]=='busy':
+                continue
+            elif a.split(',')[1]=='AcqStatus' and a.split(',')[2]=='idle\r':
+                break
+            time.sleep(1)
+            
+    def AsyncStatusReady(self):
+        while True:
+            try:
+                a=self.Sendcommand('AsyncCommandStatus()',1024)
+            except TimeoutError:
+                print('Timeout Async')
+                break
+            except TypeError:
+                print('Another response was received while async')
+                break
+            try:
+                if a.split(',')[4]=='1\r' or a.split(',')[2]=='0' :
+                    break
+            except IndexError:
+                continue
+            time.sleep(1)
         
 
 ####################################
@@ -91,10 +145,8 @@ class StreakCamera:
 ####################################
         
     def __del__(self):
-        
-        if self.AcqStatus():
-            print('Something took place')
-            self.AcqStop()
+        self.AsyncStatusReady()
+        self.StopAcq()        
         self.Sendcommand('AppEnd()',1024)
         self.portCMD.close()
         self.portData.close()
@@ -116,7 +168,14 @@ if __name__ == "__main__":
 
     #IsPortOpen()
     sc=StreakCamera(PortCmd=1001,PortData=1002,Buffer=1024,IniFile='C:\ProgramData\Hamamatsu\HPDTA\Test.ini')
-    sc.AcqStart('Live')
-    time.sleep(5)
+    print(sc.Sendcommand('SeqParamInfoEx(AcquireImages)',1024))
+
+    sc.Set_NumberIntegration('AI',10)
+    sc.ShutterOpen()
+    sc.StartSeq('AI',5)
+    sc.ShutterClose()
+    sc.BckgSubstraction()
+    sc.SaveSeq('C:\\Users\\Hamamatsu\\Documents\\Data\\1.trash\\000001.img')
+    #time.sleep(5)
     #print(sc.Sendcommand('AppStart(True)',1024))
     #print(sc.Sendcommand("MainParamGet(GateMode)",1024))

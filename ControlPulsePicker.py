@@ -33,12 +33,16 @@ class PulsePicker:
         print('Done')
         
         try:
-            self.RepRate=80E6/self.GetDivRatio()
+            self.RepRate=80E6/self.GetDivRatio() # If the script stops at this point, the best bet is to reboot the pp
         except TypeError:
             print('The instrument is connected but an unexpected response occured.')
             self.RessourceManager.close()
             sys.exit()
-
+        except instco.errors.VisaIOError:
+            print('The best bet is to reboot the pp to fix the error')
+            self.RessourceManager.close()
+            sys.exit()
+            
         self.Power=self.GetPower()
         self.PulseDelay=self.GetPulseDelay()
         self.PulseWidth=self.GetPulseWidth()
@@ -103,6 +107,7 @@ class PulsePicker:
 if __name__ == "__main__":
     FindDevice()
     pp=PulsePicker("USB0::0x0403::0xC434::S09748-10A7::INSTR")
+#    pp.SetDivRatio(2)
     #print(pp.Instrument.query_ascii_values('*IDN?'))
     print(pp.parameterDict)
     #pp.SetPower(17500)
