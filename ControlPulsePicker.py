@@ -27,17 +27,21 @@ class PulsePicker:
             print(err)
             return
         #self.Instrument.baud_rate = 38400
-        self.Instrument.timeout = 2000
+        self.Instrument.timeout = 1
         #self.Instrument.write_termination = "\r\x00"
         #self.Instrument.read_termination = "\r\x00"
-
         
         try:
-            self.RepRate=80E6/self.GetDivRatio()
+            self.RepRate=80E6/self.GetDivRatio() # If the script stops at this point, the best bet is to reboot the pp
         except TypeError:
             print('The instrument is connected but an unexpected response occured.')
             self.RessourceManager.close()
             sys.exit()
+        except instco.errors.VisaIOError:
+            print('The best bet is to reboot the pp to fix the error')
+            self.RessourceManager.close()
+            sys.exit()
+            
         self.Power=self.GetPower()
         self.PulseDelay=self.GetPulseDelay()
         self.PulseWidth=self.GetPulseWidth()
@@ -89,6 +93,7 @@ class PulsePicker:
 #Pyvisa backend command
 
     def QueryCommand(self,command):
+        
         self.Instrument.write(command)
         return self.Instrument.read_raw().decode().rstrip()
     def WriteCommand(self,command):
@@ -99,8 +104,10 @@ class PulsePicker:
         self.RessourceManager.close()
 
 if __name__ == "__main__":
-    #FindDevice()
+    FindDevice()
     pp=PulsePicker("USB0::0x0403::0xC434::S09748-10A7::INSTR")
+#    pp.SetDivRatio(2)
+    #print(pp.Instrument.query_ascii_values('*IDN?'))
     print(pp.parameterDict)
-    pp.SetPower(17500)
-    print(pp.GetPower())
+    #pp.SetPower(17500)
+    #print(pp.GetPower())
