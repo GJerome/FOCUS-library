@@ -14,7 +14,7 @@ os.system('cls')
 # Global parameter
 #############################
 
-DarkTime=10 # time of dark time in seconds
+DarkTime=1 # time of dark time in seconds
 cycles=2 # number of cycles
 
 # We create a test zone define by the  PositionCube variable, on the x_axis we do a frequency sweep and on the y axis a power sweep
@@ -104,9 +104,9 @@ for k in  IteratorFreq:
             if i != 0:
                 print('Dark time intiated')
                 time.sleep(DarkTime)
-            Laser.StatusShutterTunable(1)
+      #      Laser.StatusShutterTunable(1)
             camera.Acquire()
-            Laser.StatusShutterTunable(0)
+     #       Laser.StatusShutterTunable(0)
             
 
             

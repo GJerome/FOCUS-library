@@ -1,7 +1,7 @@
 # This file allows the control of the EMCCD using the lightfield 
 
 import clr
-clr.AddReference('System')
+#clr.AddReference('System')
 import sys
 import os
 import time
@@ -20,6 +20,7 @@ sys.path.append(os.environ['LIGHTFIELD_ROOT']+"\\AddInViews")
 clr.AddReference('PrincetonInstruments.LightFieldViewV5')
 clr.AddReference('PrincetonInstruments.LightField.AutomationV5')
 clr.AddReference('PrincetonInstruments.LightFieldAddInSupportServices')
+
 
 # PI imports
 from PrincetonInstruments.LightField.Automation import Automation
@@ -40,7 +41,11 @@ def device_found(experiment):
 
 class LightFieldControl:
 
+    sensor_temperature = float(-55) 
+
     def __init__(self,ExperimentName):
+        assert not isinstance(self.sensor_temperature, int), "sensor_temperature crashes LightField if it's an integer"
+
         # Create the LightField Application (true for visible)
         # The 2nd parameter forces LF to load with no experiment
         self.auto = Automation(True, List[String]())
@@ -48,19 +53,23 @@ class LightFieldControl:
         # Get experiment object
         self.experiment = self.auto.LightFieldApplication.Experiment
     
-
         if device_found(self.experiment) == True:
             self.LoadExperiment(ExperimentName)
             self.Status=True
 
+            # Sensor_temperature needs to be a float, otherwise experiment.SetValue() crashes the program
+
+
             #First we check if the temperature is correctly set
             if (self.experiment.IsReadyToRun & self.experiment.IsRunning==False):
-                try:
-                    self.experiment.SetValue(CameraSettings.SensorTemperatureSetPoint,-55)
-                except Exception as e:
-                    return e
+                self.experiment.SetValue(CameraSettings.SensorTemperatureSetPoint, self.sensor_temperature)
+                # try:
+                # # except Exception as e:
+                # #     return e
+                # except:
+                #     pass
             # And we wait for the temperature to be settled
-            while( self.experiment.GetValue(CameraSettings.SensorTemperatureReading)!= -55):
+            while( self.experiment.GetValue(CameraSettings.SensorTemperatureReading)!= self.sensor_temperature):
                 time.sleep(3)
                 print('Temperature of the camera : {}'.format(self.experiment.GetValue(CameraSettings.SensorTemperatureReading)))  
             self.LoadExperiment(ExperimentName) 
@@ -96,6 +105,7 @@ class LightFieldControl:
 
 if __name__ == "__main__":
     emccd=LightFieldControl(ExperimentName='TimeTraceEM')
+    time.sleep(10)
     if emccd.Status==False:
         print("The experiment couldn't be setup please close all instance of Lightfield, check connection and retry.")
         sys.exit()

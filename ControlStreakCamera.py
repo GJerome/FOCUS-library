@@ -49,12 +49,18 @@ class StreakCamera:
 
     def StartSeq(self,AcqMode,NbrSeq):
         self.Sendcommand('SeqParamSet(AcquisitionMode,'+str(AcqMode)+')',1024)
+        self.AsyncStatusReady()
         self.Sendcommand('SeqParamSet(NoOfLoops,'+str(NbrSeq)+')',1024)
+        self.AsyncStatusReady()
         self.Sendcommand('SeqStart()',1024)
 
     def StopAcq(self):
         self.Sendcommand('AcqStop()',1024)
         self.AsyncStatusReady()
+
+    def BckgSubstraction(self):
+        self.AcqStatusReady()
+        a=self.Sendcommand('CorDoCorrection(Current,Background)',1024)
 
     def SaveImg(self,Folder):
         self.AcqStatusReady()
@@ -71,9 +77,9 @@ class StreakCamera:
     def Set_NumberIntegration(self,Mode,Nbr):
         a=self.Sendcommand('CamParamSet('+str(Mode)+',NrExposures,'+str(Nbr)+')',1024)
     
-    def BckgSubstraction(self):
-        self.AcqStatusReady()
-        a=self.Sendcommand('CorDoCorrection(Current,Background)',1024)
+    def Set_MCPGain(self,Gain):
+        a=self.Sendcommand('DevParamSet(TD,MCP Gain,'+str(Gain)+')',1024)
+
 
 ####################################
 # Shutter
@@ -81,6 +87,9 @@ class StreakCamera:
     def ShutterOpen(self):
         self.Sendcommand('DevParamSet(TD,Shutter,Open)',1024)
         time.sleep(5)
+
+    def ShutterOpenFast(self):
+        self.Sendcommand('DevParamSet(TD,Shutter,Open)',1024)
 
     def ShutterClose(self):
         self.Sendcommand('DevParamSet(TD,Shutter,Closed)',1024)
@@ -111,11 +120,12 @@ class StreakCamera:
                 print('Another response was received while async')
                 break
             try:
-                if a.split(',')[4]=='1\r' or a.split(',')[2]=='0' :
+                #if a.split(',')[4]=='1\r' or a.split(',')[2]=='0' :
+                if a.split(',')[2]=='0' :
                     break
             except IndexError:
                 continue
-            time.sleep(1)
+            time.sleep(0.5)
         
 
 ####################################
@@ -168,14 +178,13 @@ if __name__ == "__main__":
 
     #IsPortOpen()
     sc=StreakCamera(PortCmd=1001,PortData=1002,Buffer=1024,IniFile='C:\ProgramData\Hamamatsu\HPDTA\Test.ini')
-    print(sc.Sendcommand('SeqParamInfoEx(AcquireImages)',1024))
-
-    sc.Set_NumberIntegration('AI',10)
-    sc.ShutterOpen()
-    sc.StartSeq('AI',5)
-    sc.ShutterClose()
-    sc.BckgSubstraction()
-    sc.SaveSeq('C:\\Users\\Hamamatsu\\Documents\\Data\\1.trash\\000001.img')
+    print(sc.Sendcommand('SeqParamInfoEx(AcquisitionMode)',1024))
+    #sc.Set_NumberIntegration('AI',10)
+    #sc.ShutterOpen()
+    #sc.StartSeq('AI',5)
+    #sc.ShutterClose()
+    #sc.BckgSubstraction()
+    #sc.SaveSeq('C:\\Users\\Hamamatsu\\Documents\\Data\\1.trash\\000001.img')
     #time.sleep(5)
     #print(sc.Sendcommand('AppStart(True)',1024))
     #print(sc.Sendcommand("MainParamGet(GateMode)",1024))

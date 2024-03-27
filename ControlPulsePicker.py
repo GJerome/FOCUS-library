@@ -30,7 +30,6 @@ class PulsePicker:
         self.Instrument.timeout = 1
         #self.Instrument.write_termination = "\r\x00"
         #self.Instrument.read_termination = "\r\x00"
-        print('Done')
         
         try:
             self.RepRate=80E6/self.GetDivRatio() # If the script stops at this point, the best bet is to reboot the pp
