@@ -10,8 +10,8 @@ import time
 #############################
 # Global parameter
 #############################
-time_exp=60*10 # time of experiment in second
-time_sleep=5*10
+time_exp=10 # time of experiment in second
+time_sleep=10
 nb_loop=3
 PhaseCalib=85
 

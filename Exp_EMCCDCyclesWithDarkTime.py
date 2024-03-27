@@ -1,6 +1,7 @@
 import ControlLockInAmplifier as lock
 import ControlLaser as las
 import ControlPulsePicker as picker
+import ControlEMCCD as EMCCD
 import FileControl 
 import ControlConex as Rtransla
 
@@ -13,33 +14,29 @@ os.system('cls')
 # Global parameter
 #############################
 
-Dwell_Time=60 # time of experiment in second
+DarkTime=1 # time of dark time in seconds
+cycles=2 # number of cycles
+
 # We create a test zone define by the  PositionCube variable, on the x_axis we do a frequency sweep and on the y axis a power sweep
-PositionCube=[10 ,0,0.1,0.1]# [x_start y_start x_length y_length]
-Freq=[8E3,800E6] # [starting frequency, end frequency] the actual unit send is the cast int of 80E6/Freq which is the division ratio 
-Nb_pts_freq=5
-PowerSweep=[500,4100] #[Starting power, end power] in mw
-Nb_pts_power=5
+PositionCube=[7 ,10,1,1]# [x_start y_start x_length y_length]
+Freq=[8E3,8E6] # [starting frequency, end frequency] the actual unit send is the cast int of 80E6/Freq which is the division ratio 
+Nb_pts_freq=2
+PowerSweep=[500,17500] #[Starting power, end power] in mw
+Nb_pts_power=2
 
 
 FileNameData='DataDoseExperiement_'
 
 LockInParaFile='ParameterLockIn.txt'
 
-GeneralPara={'Experiment name':' Dose experiment','Dwelling time':Dwell_Time,
+GeneralPara={'Experiment name':' Dose experiment','Dark time':DarkTime,
              'Frequency sweep':Freq,'Number points frequency sweep':Nb_pts_freq,
              'Power sweep':PowerSweep,'Number points power sweep':Nb_pts_power,
              'Note':'The SHG unit from Coherent was used'}
 
 InstrumentsPara={}
 
-#############################
-# Initialisation of lock-in amplifier
-#############################
 
-LockInDevice=lock.LockInAmplifier(LockInParaFile)
-
-InstrumentsPara['Lock-in-amplifier']=LockInDevice.parameterDict
 
 #############################
 # Initialisation of laser
@@ -61,16 +58,22 @@ print('Initialised pulse picker')
 # Initialisation of the Conex Controller
 #############################
 
-
-x_axis=Rtransla.ConexController('COM12')
-y_axis=Rtransla.ConexController('COM13')
+x_axis=Rtransla.ConexController('COM13')
+y_axis=Rtransla.ConexController('COM12')
 print('Initialised rough translation stage')
+
+#############################
+# Initialisation of the EMCCD
+#############################
+
+camera=EMCCD.LightFieldControl('TimeTraceEM')
+print('Initialised EMCCD')
 
 #############################
 # Preparation of the directory
 #############################
 print('Directory staging, please check other window')
-DirectoryPath=FileControl.PrepareDirectory(GeneralPara,InstrumentsPara)
+#DirectoryPath=FileControl.PrepareDirectory(GeneralPara,InstrumentsPara)
 
 
 #############################
@@ -92,25 +95,21 @@ for k in  IteratorFreq:
     x_axis.MoveTo(x_pos[IteratorFreq.index])    
     pp.SetDivRatio(k) 
 
-    for j in IteratorPower:       
+    for j in IteratorPower:
         y_axis.MoveTo(y_pos[IteratorPower.index])
         pp.SetPower(j)
-        print('Laser on the sample with a div ratio of {} and a power of {}'.format(pp.GetDivRatio(),pp.GetPower())) 
-        Laser.StatusShutterTunable(1)
-        LockInDevice.AutorangeSource()
-        data_Source1,t1,data_Source2,t2=LockInDevice.AcquisitionLoop(Dwell_Time)
+        print('Laser on the sample with a div ratio of {} and a power of {}'.format(pp.GetDivRatio(),pp.GetPower()))
+        
+        for i in range(cycles):
+            if i != 0:
+                print('Dark time intiated')
+                time.sleep(DarkTime)
+      #      Laser.StatusShutterTunable(1)
+            camera.Acquire()
+     #       Laser.StatusShutterTunable(0)
+            
 
-        #############################
-        # Interpolation to the same timebase
-        #############################
-
-        data_Source2_interp=np.interp(t1,t2,data_Source2)
-        Reflectivity=np.divide(data_Source2_interp,data_Source1)
-        t1_scaled=(t1-t1[1])/LockInDevice.Timebase
-
-        export_data=(t1_scaled,Reflectivity,data_Source2_interp,data_Source1)
-        FileControl.ExportFileLockIn(DirectoryPath,FileNameData+'DivRatio{}Power{}'.format(str(k),str(np.round(j,2))),export_data)
-      
-        Laser.StatusShutterTunable(0)
+            
     IteratorPower.reset()
-    
+
+print('Experiment finished')
