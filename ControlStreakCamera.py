@@ -79,8 +79,14 @@ class StreakCamera:
     
     def Set_MCPGain(self,Gain):
         a=self.Sendcommand('DevParamSet(TD,MCP Gain,'+str(Gain)+')',1024)
+    
+    def Get_Delay1(self):
+        a=self.Sendcommand('DevParamGet(Delay1)',1024)
+        print(a)
 
-
+    def Get_Delay2(self):
+        a=self.Sendcommand('DevParamGet(Delay2)',1024)
+        print(a)
 ####################################
 # Shutter
 ####################################
@@ -178,7 +184,8 @@ if __name__ == "__main__":
 
     #IsPortOpen()
     sc=StreakCamera(PortCmd=1001,PortData=1002,Buffer=1024,IniFile='C:\ProgramData\Hamamatsu\HPDTA\Test.ini')
-    print(sc.Sendcommand('SeqParamInfoEx(AcquisitionMode)',1024))
+    print(sc.Get_Delay1())
+    print(sc.Get_Delay2())
     #sc.Set_NumberIntegration('AI',10)
     #sc.ShutterOpen()
     #sc.StartSeq('AI',5)
