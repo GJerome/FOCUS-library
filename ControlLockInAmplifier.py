@@ -95,7 +95,7 @@ class LockInAmplifier:
                 R1=np.sqrt(np.square(temp[self.S1_name+'sample']['x'])+np.square(temp[self.S1_name+'sample']['y']))
                 theta1=np.arctan2(temp[self.S1_name+'sample']['x'],temp[self.S1_name+'sample']['y'])
                 R2=np.sqrt(np.square(temp[self.S2_name+'sample']['x'])+np.square(temp[self.S2_name+'sample']['y']))
-                theta2=np.arctan2(temp[self.S1_name+'sample']['x'],temp[self.S1_name+'sample']['y'])
+                theta2=np.arctan2(temp[self.S2_name+'sample']['x'],temp[self.S2_name+'sample']['y'])
 
             #############################
             # Timestamps stream
@@ -115,8 +115,8 @@ class LockInAmplifier:
             time_run=time.time()-t0
             if time_run>time_exp:
                 break
-            
-        return pd.DataFrame([t1,data_Source1R,data_Source1T,t2,data_Source2R,data_Source2T],columns=['t1','R1','Phase1','t2','R2','Phase2'])
+        return pd.DataFrame({'t':t1,'R1':data_Source1R,'Phase1':data_Source1T,
+                             'R2':np.interp(t1,t2,data_Source2R),'Phase2':np.interp(t1,t2,data_Source2T)})
     
     def AcquisitionLoopLegacy(self,time_exp):
         #############################
@@ -160,6 +160,8 @@ class LockInAmplifier:
             if time_run>time_exp:
                 break
         return data_Source1,t1,data_Source2,t2
+    
+    
     def SetPathValue(self,path,value):
         #DEMODS/n/ORDER
         try:
@@ -225,4 +227,4 @@ if __name__ == "__main__":
     LockInParaFile='ParameterLockInTA.txt'
 
     lock=LockInAmplifier(LockInParaFile)
-    lock.AcquisitionLoop(0.5)
+    print(lock.AcquisitionLoop(0.5))

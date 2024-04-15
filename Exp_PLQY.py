@@ -72,25 +72,11 @@ Laser.StatusShutterTunable(1)
 for k in  IteratorMes:
     
     LockInDevice.AutorangeSource()
+    DataMes=LockInDevice.AcquisitionLoop(time_exp)
 
-    data_Source1,t1,data_Source2,t2=LockInDevice.AcquisitionLoop(time_exp)
-
-    #############################
-    # Interpolation to the same timebase
-    #############################
-
-    data_Source2_interp=np.interp(t1,t2,data_Source2)
-    t1_scaled=(t1-t1[1])/LockInDevice.Timebase
-
-    export_data=(t1_scaled,data_Source2_interp,data_Source1)
-    FileControl.ExportFileLockIn(DirectoryPath,FileNameData+'loop{}'.format(str(k)),export_data)
-
-    
-    print('The sample is sleeping')
-    Laser.StatusShutterTunable(0)
-    
-
+    FileControl.ExportFileLockIn(DirectoryPath,FileNameData+'loop{}'.format(str(k)),DataMes)
 
 Laser.StatusShutterTunable(0)
+
 
       
