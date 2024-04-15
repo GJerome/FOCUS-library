@@ -15,17 +15,17 @@ os.system('cls')
 #############################
 
 
-Nb_points=3
+Nb_points=4
 DistancePts=0.1
 
 # Streak camera parameter
-Nb_exposure=50
-Nb_loop=300
-MCP_Gain=34
+Nb_exposure=150
+Nb_loop=50
+MCP_Gain=35
 
 # Start Rough stage
-startx=8.12
-starty=8.12
+startx=4.1
+starty=8.75
 
 
 # Misc parameter

@@ -88,7 +88,7 @@ class LightFieldControl:
 
     def Acquire(self):
         # Acquire an image
-        if self.experiment.IsRunning==False & self.experiment.IsReadyToRun == True:
+        if self.experiment.IsRunning ==False and self.experiment.IsReadyToRun == True:        
             self.experiment.Acquire()
 
     def SetSavefileName(self,Filename):
