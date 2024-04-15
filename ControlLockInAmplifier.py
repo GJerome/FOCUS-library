@@ -1,5 +1,6 @@
 import zhinst.core
 import numpy as np
+import pandas as pd
 import time
 import sys
 
@@ -67,6 +68,57 @@ class LockInAmplifier:
                                                                                                             self.S2_name+"sample",float(self.parameterDict['SamplingRate'])))
 
     def AcquisitionLoop(self,time_exp):
+
+        #############################
+        # Creation of data vector
+        #############################
+
+        data_Source1R=np.empty(1)
+        data_Source1T=np.empty(1)
+        data_Source2R=np.empty(1)
+        data_Source2T=np.empty(1)
+        t1=np.empty(1)
+        t2=np.empty(1)
+
+        t0=time.time()
+        time_run=0
+
+        self.api_session.sync()
+
+        while True:
+            temp=self.api_session.poll(1, 500,0x0001,True)
+            try:
+
+            #############################
+            # Data stream
+            #############################
+                R1=np.sqrt(np.square(temp[self.S1_name+'sample']['x'])+np.square(temp[self.S1_name+'sample']['y']))
+                theta1=np.arctan2(temp[self.S1_name+'sample']['x'],temp[self.S1_name+'sample']['y'])
+                R2=np.sqrt(np.square(temp[self.S2_name+'sample']['x'])+np.square(temp[self.S2_name+'sample']['y']))
+                theta2=np.arctan2(temp[self.S1_name+'sample']['x'],temp[self.S1_name+'sample']['y'])
+
+            #############################
+            # Timestamps stream
+            #############################
+                t1=np.append(t1,temp[self.S1_name+"sample"]['timestamp'])
+                t2=np.append(t2,temp[self.S2_name+"sample"]['timestamp'])
+
+            except:
+                print("It seems that the field didn't exist, loop didn't finish \n The dictonary had the following data keys:\n {} ".format(temp.keys()))
+                break
+
+            data_Source1R=np.append(data_Source1R,R1)
+            data_Source1T=np.append(data_Source1T,theta1)
+            data_Source2R=np.append(data_Source2R,R2)
+            data_Source2T=np.append(data_Source2T,theta2)
+
+            time_run=time.time()-t0
+            if time_run>time_exp:
+                break
+            
+        return pd.DataFrame([t1,data_Source1R,data_Source1T,t2,data_Source2R,data_Source2T],columns=['t1','R1','Phase1','t2','R2','Phase2'])
+    
+    def AcquisitionLoopLegacy(self,time_exp):
         #############################
         # Creation of data vector
         #############################
@@ -91,7 +143,6 @@ class LockInAmplifier:
                 R1=np.sqrt(np.square(temp[self.S1_name+'sample']['x'])+np.square(temp[self.S1_name+'sample']['y']))
                 R2=np.sqrt(np.square(temp[self.S2_name+'sample']['x'])+np.square(temp[self.S2_name+'sample']['y']))
 
-
             #############################
             # Timestamps stream
             #############################
@@ -109,7 +160,6 @@ class LockInAmplifier:
             if time_run>time_exp:
                 break
         return data_Source1,t1,data_Source2,t2
-    
     def SetPathValue(self,path,value):
         #DEMODS/n/ORDER
         try:
@@ -136,6 +186,7 @@ class LockInAmplifier:
         return self.parameterDict
 
     def AutorangeSource(self):
+        #Beware there is already a time sleep 
         a=self.SetPathValue('/dev2940/sigins/1/autorange', 1)
         time.sleep(3)
         a=self.SetPathValue('/dev2940/sigins/0/autorange', 1)
@@ -174,4 +225,4 @@ if __name__ == "__main__":
     LockInParaFile='ParameterLockInTA.txt'
 
     lock=LockInAmplifier(LockInParaFile)
-    lock.SetOutputTA('Trigger1')
+    lock.AcquisitionLoop(0.5)
