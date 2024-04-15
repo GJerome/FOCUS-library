@@ -14,6 +14,10 @@ def AskDirectory():
 
 def ExportFileLockIn(path,FileName,data):
     date=datetime.today().strftime('%Y-%m-%d')
+    data.to_pickle(path+'/'+date+FileName+'.pkl')
+
+def ExportFileLockInLegacy(path,FileName,data):
+    date=datetime.today().strftime('%Y-%m-%d')
     np.savetxt(path+'/'+date+FileName+'.txt',data,header='Timestamps \t S2/S1 \t S2 \t S1')
 
 def ExportFileBeamSpotSize(path,FileName,data):
