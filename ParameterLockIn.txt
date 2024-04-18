@@ -5,8 +5,8 @@ SamplingRate = 10000
 #Demodulator 1 to poll
 Demodulator1 = 0
 FilterOrder = 8
-TimeConstant = 0.001
+TimeConstant = 0.02
 #Demodulator 2 to poll
-Demodulator2 = 4
+Demodulator2 = 1
 FilterOrder = 8
-TimeConstant = 0.001
+TimeConstant = 0.02
