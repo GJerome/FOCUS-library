@@ -20,7 +20,7 @@ nb_points=2 # Number of position to do , by default it will move along the x axi
 startx=8.12
 DistPoints=0.1
 
-
+#Filter position
 #############################
 # Stable variable
 #############################
