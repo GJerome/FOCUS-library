@@ -1,6 +1,7 @@
 import ControlLockInAmplifier as lock
 import ControlLaser as las
 import ControlConex as Rtransla
+import ControlFlipMount as FlipMount
 
 import numpy as np
 
@@ -54,6 +55,14 @@ x_axis=Rtransla.ConexController('COM13')
 x_axis.MoveTo(startx)
 print('Initialised rough translation stage')
 
+#############################
+# Initialisation of the Flip mount
+#############################
+
+FlipIS=FlipMount.FlipMount("37007725")
+FlipIS.ChangeState(0)
+FlipR=FlipMount.FlipMount("37007725")
+FlipR.ChangeState(0)
 #############################
 # Preparation of the directory
 #############################

@@ -21,7 +21,7 @@ cycles=3 # number of cycles
 PositionCube=[8.6,6.3,0.1,0.1]# [x_start y_start x_length y_length]
 Freq=[4E6,400E3] # [starting frequency, end frequency] the actual unit send is the cast int of 80E6/Freq which is the division ratio 
 
-Nb_pts_freq=2
+Nb_pts_freq=3
 PowerSweep=[0.9,1.3,1.5,2.1,2.8,3.4,6.6,10.4,17.5] #[Starting power, end power] in mw
 
 Nb_pts_power=3
@@ -84,13 +84,13 @@ print('Initialised EMCCD')
 print('')
 
 x_pos=np.linspace(PositionCube[0],PositionCube[0]+PositionCube[2],Nb_pts_freq)
-FreqSweep=np.linspace(int(80E6/Freq[0]),int(80E6/Freq[1]),Nb_pts_freq,dtype=np.dtype(int))
-#FreqSweep=np.array([16],dtype=np.dtype(int))
+#FreqSweep=np.linspace(int(80E6/Freq[0]),int(80E6/Freq[1]),Nb_pts_freq,dtype=np.dtype(int))
+FreqSweep=np.array([2,20,200],dtype=np.dtype(int))
 IteratorFreq=np.nditer(FreqSweep, flags=['f_index'])
 
 y_pos=np.linspace(PositionCube[1],PositionCube[1]+PositionCube[3],Nb_pts_power)
 #PowerSweep=np.linspace(PowerSweep[0],PowerSweep[1],Nb_pts_power,dtype=np.dtype(int))
-PowerSweep=np.array([2100,2800,3400,6600,10400,17500],dtype=np.dtype(int)) #900,1300,1500,
+PowerSweep=np.array([1000,1400,1600,2200,3000,3600,7100,11900,17500],dtype=np.dtype(int)) #900,1300,1500,
 IteratorPower=np.nditer(PowerSweep, flags=['f_index'])
 
 #y_axis.MoveTo(y_pos[0])
