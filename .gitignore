@@ -1,6 +1,6 @@
 # Folder to ignore
-./__pycache__/
-./.vscode/
-./Atrier/
-./DataAnalysis/DataPLQY/
-./DataAnalysis/DataStreakPL/
+__pycache__/
+.vscode/
+Atrier/
+DataAnalysis/DataPLQY/
+DataAnalysis/DataStreakPL/
