@@ -24,7 +24,7 @@ Freq=[8E3,4E6] # [starting frequency, end frequency] the actual unit send is the
 Nb_pts_freq=5
 
 # Power tuning
-PowerSweep=[500,17500] #[Starting power, end power] in mw
+PowerSweep=[17500,17500] #[Starting power, end power] in mw
 Nb_pts_power=5
 
 #Measurement 
@@ -77,7 +77,7 @@ print('Initialised rough translation stage')
 #############################
 # Preparation of the directory
 #############################
-
+print('Directory staging, please check other window')
 DirectoryPath=FileControl.PrepareDirectory(GeneralPara,InstrumentsPara)
 
 #############################
