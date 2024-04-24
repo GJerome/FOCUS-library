@@ -6,7 +6,7 @@ def GetCommand(PortObject, cmdSend):
         cmd = cmdSend+'\r'
         PortObject.write(cmd.encode())
         response = PortObject.readline().decode().rstrip()
-        return response;
+        return response
 
 def SetCommand(PortObject, cmdSend):       
          
