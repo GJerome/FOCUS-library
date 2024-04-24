@@ -26,7 +26,7 @@ class PulsePicker:
             self.RessourceManager.close()
             print(err)
             return
-        self.Instrument.baud_rate = 38400
+        #self.Instrument.baud_rate = 38400
         self.Instrument.timeout = 5
         self.Instrument.write_termination = "\r\x00"
         self.Instrument.read_termination = "\r\x00"
@@ -51,7 +51,11 @@ class PulsePicker:
             self.TriggerState='External'
         
         if self.GetPowerState()==0:
-            self.SetPowerState(1)
+            a=self.SetPowerState(1)
+            if a=='0':
+                print('Could not set RF on')
+                sys.exit()
+
         self.parameterDict={'Repetition rate':self.RepRate,'Power': self.Power,'Pulse delay':self.PulseDelay,'Pulse width':self.PulseWidth,'Trigger': self.TriggerState}
 
 # Get functions        
@@ -95,11 +99,17 @@ class PulsePicker:
         self.WriteCommand('PDELAY{}'.format(str(PWIDTH)))
     def SetTriggerState(self,TriggerState):
         '''Select the trigger condition, 0 select internal counter, 1 select external trigger input.'''
-        return self.QueryCommand('EXTTRIGGER{}'.format(str(TriggerState)))
+        self.WriteCommand('EXTTRIGGER{}'.format(str(TriggerState)))
+        return self.QueryCommand('EXTTRIGGER?')
+    
     def SetPowerState(self,PowerState):
         '''Set the status of RF ouput, 0 is OFF,1 is ON.'''
-        print('PWR_ON{}'.format(str(PowerState)))
-        return self.QueryCommand('PWR_ON{}'.format(str(PowerState)))                 
+        print(self.GetPowerState())
+        if self.GetPowerState()==str(PowerState):
+            return PowerState
+        else:
+            self.WriteCommand('PWR_ON{}'.format(str(PowerState))) 
+            return self.GetPowerState()                
     
 
 #Pyvisa backend command
@@ -108,6 +118,12 @@ class PulsePicker:
         
         self.Instrument.write(command)
         return self.Instrument.read_raw().decode().rstrip()
+    
+    def QueryCommandDebug(self,command):        
+        self.Instrument.write(command)
+        data=self.Instrument.read_raw()
+        return data
+    
     def WriteCommand(self,command):
         return self.Instrument.write(command) 
     
@@ -116,11 +132,12 @@ class PulsePicker:
         self.RessourceManager.close()
 
 if __name__ == "__main__":
-    FindDevice()
+    #FindDevice()
     pp=PulsePicker("USB0::0x0403::0xC434::S09748-10A7::INSTR")
-    pp.SetDivRatio(20)
+    #print(type(pp.QueryCommand('PWR_ON?')))
+    #pp.SetDivRatio(20)
     #print(pp.Instrument.query_ascii_values('*IDN?'))
-    print(pp.parameterDict)
-    pp.SetPower(17500)
-    pp.SetPowerState(0)
-    print(pp.GetPower())
+    #print(pp.parameterDict)
+    #pp.SetPower(17500)
+    print(pp.SetPowerState(0))
+    #print(pp.GetPower())
