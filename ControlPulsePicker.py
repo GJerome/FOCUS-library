@@ -26,10 +26,10 @@ class PulsePicker:
             self.RessourceManager.close()
             print(err)
             return
-        #self.Instrument.baud_rate = 38400
-        self.Instrument.timeout = 1
-        #self.Instrument.write_termination = "\r\x00"
-        #self.Instrument.read_termination = "\r\x00"
+        self.Instrument.baud_rate = 38400
+        self.Instrument.timeout = 5
+        self.Instrument.write_termination = "\r\x00"
+        self.Instrument.read_termination = "\r\x00"
         
         try:
             self.RepRate=80E6/self.GetDivRatio() # If the script stops at this point, the best bet is to reboot the pp
@@ -49,11 +49,18 @@ class PulsePicker:
             self.TriggerState='Internal'
         elif self.GetTriggerState()==1:
             self.TriggerState='External'
+        
+        if self.GetPowerState()==0:
+            self.SetPowerState(1)
         self.parameterDict={'Repetition rate':self.RepRate,'Power': self.Power,'Pulse delay':self.PulseDelay,'Pulse width':self.PulseWidth,'Trigger': self.TriggerState}
 
 # Get functions        
     def GetDivRatio(self):
-        return int(self.QueryCommand('DIVR?'))    
+        try:
+            return int(self.QueryCommand('DIVR?'))
+        except ValueError:
+            print('Problem getting Pulse picker division ratio.')
+            return 0  
     def GetPower(self):
         '''Read current pulse power. The value is scaled in mW, 0.1 Wsteps'''
         try:
@@ -91,6 +98,7 @@ class PulsePicker:
         return self.QueryCommand('EXTTRIGGER{}'.format(str(TriggerState)))
     def SetPowerState(self,PowerState):
         '''Set the status of RF ouput, 0 is OFF,1 is ON.'''
+        print('PWR_ON{}'.format(str(PowerState)))
         return self.QueryCommand('PWR_ON{}'.format(str(PowerState)))                 
     
 
@@ -110,8 +118,9 @@ class PulsePicker:
 if __name__ == "__main__":
     FindDevice()
     pp=PulsePicker("USB0::0x0403::0xC434::S09748-10A7::INSTR")
-#    pp.SetDivRatio(2)
+    pp.SetDivRatio(20)
     #print(pp.Instrument.query_ascii_values('*IDN?'))
     print(pp.parameterDict)
-    #pp.SetPower(17500)
-    #print(pp.GetPower())
+    pp.SetPower(17500)
+    pp.SetPowerState(0)
+    print(pp.GetPower())
