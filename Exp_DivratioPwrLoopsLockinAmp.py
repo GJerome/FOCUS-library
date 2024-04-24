@@ -17,18 +17,18 @@ import pandas as pd
 
 
 # We create a test zone define by the  PositionCube variable, on the x_axis we do a frequency sweep and on the y axis a power sweep
-PositionCube=[7 ,9,1,1]# [x_start y_start x_length y_length]
+PositionCube=[6.25 ,9,1,1]# [x_start y_start x_length y_length]
 
 #Frequency tuning
-Freq=[8E3,4E6] # [starting frequency, end frequency] the actual unit send is the cast int of 80E6/Freq which is the division ratio 
+Freq=[80E3,4E6] # [starting frequency, end frequency] the actual unit send is the cast int of 80E6/Freq which is the division ratio 
 Nb_pts_freq=5
 
 # Power tuning
-PowerSweep=[17500,17500] #[Starting power, end power] in mw
+PowerSweep=[500,17500] #[Starting power, end power] in mw
 Nb_pts_power=5
 
 #Measurement 
-time_exp=60 # time of experiment in second
+time_exp=3*60 # time of experiment in second
 time_sleep=0
 nb_loop=1 # number of on/off cycles
 
