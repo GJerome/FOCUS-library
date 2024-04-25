@@ -1,3 +1,5 @@
+import ControlSHG 
+
 import serial
 import time
 import sys
@@ -5,14 +7,14 @@ import sys
 class LaserControl:
     """ This class connect to the laser """   
 
-    def __init__(self,ComPort,ShutterWaitTime):        
+    def __init__(self,ComPortLaser,ComportSHG,ShutterWaitTime):        
 
         try:
         # Connexion to the serial port
-            self.SerialPort = serial.Serial(ComPort,baudrate=19200,bytesize=serial.EIGHTBITS,timeout=3,parity=serial.PARITY_NONE)
+            self.SerialPort = serial.Serial(ComPortLaser,baudrate=19200,bytesize=serial.EIGHTBITS,timeout=3,parity=serial.PARITY_NONE)
         #except serial.serialutil.SerialException:
         except :
-            sys.exit("Can't connect to the laser. You could try to close Discovery NX.")
+            sys.exit("LaserControl error: Can't connect to the laser. You could try to close Discovery NX.")
             
         self.ShutterFixed=self.GetStatusShutterFixed()
         self.ShutterTunable=self.GetStatusShutterTunable()
@@ -20,9 +22,11 @@ class LaserControl:
         self.ShutterWaitTime=ShutterWaitTime
         self.Status=self.GetStatus()
         self.Wavelength=self.GetWavelength()
-        #print('Laser status: {}\n Laser wavelength:{} \n Shutter Tunable: {}\n Shutter fixed: {}'.format(self.Status,self.Wavelength,self.ShutterTunable,self.ShutterFixed))
+        # Set the SHG in accordance to the laser tunable output
+        self.SHG=ControlSHG.SHG(ComportSHG)
+        self.SHG.SetWavelength(self.Wavelength)
 
-        self.parameterDict={'Tunable output wavelength':self.Wavelength}
+        self.parameterDict={'Tunable output wavelength':self.Wavelength,'SHG Wavelength': self.Wavelength}
 
     def GetStatus(self):
         self.SerialPort.write("?ST\r\n".encode('utf-8'))
@@ -45,12 +49,26 @@ class LaserControl:
     
     def GetStatusShutterTunable(self):
         self.SerialPort.write("?S \r\n".encode())
-        time.sleep(0.5)
         status = self.SerialPort.readline().decode().rstrip()
         if status.find('?')!=-1:  
             return int(status[15])    
         else:
             return int(status[13])
+        
+    def SetWavelengthTunable(self,wave):
+        if (int(wave)<660) and (int(wave)>329):
+            self.SerialPort.write("WAVELENGTH={}\r\n".format(int(2*wave)).encode())
+            
+            status = self.SerialPort.readline().decode().rstrip()
+            a=self.SHG.SetWavelength(int(2*wave))
+            print(a)
+        elif (wave>=660) and (wave<1301):
+            self.SerialPort.write("WAVELENGTH={}\r\n".format(int(wave)).encode())
+            status = self.SerialPort.readline().decode().rstrip()
+        else:
+            print('Laser error: Chosen wavelength outside of the range acheveable.')
+            sys.exit()
+        return int(status[22:])
     
     def StatusShutterTunable(self,status):
         '''The status of the shutter is defined as False(0) for close and True(1) as open '''
@@ -98,7 +116,10 @@ class LaserControl:
 
 
 if __name__ == "__main__":
-    Laser= LaserControl('COM8',2)
+    Laser= LaserControl('COM8','COM17',2)
     print(Laser.GetWavelength())
-    Laser.SerialPort.write("?SN\r\n".encode())
-    print(Laser.SerialPort.readline().decode().rstrip())
+    #Laser.SerialPort.write("?SN\r\n".encode())
+    #print(Laser.SerialPort.readline().decode().rstrip())
+    Laser.SetWavelengthTunable(600)
+    print(Laser.GetWavelength())
+    print(Laser.GetStatusShutterTunable())

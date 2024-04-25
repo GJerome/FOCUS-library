@@ -7,22 +7,25 @@ class SHG:
     The function is then just to ensure that the command are send accordigly and that everything is working. """
     
 
-    def __init__(self,Adress):
+    def __init__(self,COMPortSHG):
         """ This class connect to a motor using the pyserial backend. It take as an argument the adress of the instruments.
         """
-        self.device=serial.Serial(port=Adress,baudrate=38400,parity='N',stopbits=1,timeout=3)
+        self.device=serial.Serial(port=COMPortSHG,baudrate=38400,parity='N',stopbits=1,timeout=3)
 
     def GetWavelength(self):
-        print('To the best of my knwoledge this is not possible.')
+        print('SHG Warning: To the best of my knowledge this is not possible.')
 
     def SetWavelength(self,wave):
-        if wave<1000:
+        if int(wave)<1000:
             wave='0'+str(wave)
         else:
             wave=wave
         self.device.write('NWL{},'.format(wave).encode())
         if self.device.readline()[3:-1]!=b'\x00\x00\x02':
-            print('Problem setting up the wavelength')
+            print('SHG Warning:Problem setting up the wavelength')
+            return False
+        else:
+            return True
 
     #Serial backend command  
     def GetCommand(self, cmdSend):       
