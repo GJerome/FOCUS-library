@@ -13,7 +13,11 @@ class SHG:
         self.device=serial.Serial(port=COMPortSHG,baudrate=38400,parity='N',stopbits=1,timeout=3)
 
     def GetWavelength(self):
-        print('SHG Warning: To the best of my knowledge this is not possible.')
+         while True:
+            try:
+                return int(self.GetCommand('GWL,')[3:])
+            except ValueError:
+                pass
 
     def SetWavelength(self,wave):
         if int(wave)<1000:
@@ -21,8 +25,9 @@ class SHG:
         else:
             wave=wave
         self.device.write('NWL{},'.format(wave).encode())
-        if self.device.readline()[3:-1]!=b'\x00\x00\x02':
-            print('SHG Warning:Problem setting up the wavelength')
+        status=self.device.readline()
+        if status[3:-1]!=b'\x00\x00\x02':
+            print('SHG Warning:Problem setting up the wavelength (status:{})'.format(self.GetCommand('GST,')))
             return False
         else:
             return True
@@ -45,4 +50,6 @@ class SHG:
 if __name__ == "__main__":
 
     SHGDevice = SHG('COM17')
-    SHGDevice.SetWavelength(800)
+    print(SHGDevice.GetWavelength())
+    SHGDevice.SetWavelength(1289)
+    print(SHGDevice.GetWavelength())
