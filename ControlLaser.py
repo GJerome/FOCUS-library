@@ -11,11 +11,12 @@ class LaserControl:
 
         try:
         # Connexion to the serial port
-            self.SerialPort = serial.Serial(ComPortLaser,baudrate=19200,bytesize=serial.EIGHTBITS,timeout=3,parity=serial.PARITY_NONE)
+            self.SerialPort = serial.Serial(ComPortLaser,baudrate=19200,bytesize=serial.EIGHTBITS,timeout=30,parity=serial.PARITY_NONE)
         #except serial.serialutil.SerialException:
         except :
             sys.exit("ControlLaser error: Can't connect to the laser. You could try to close Discovery NX.")
-            
+        self.SerialPort.write('E = 0\r\n'.encode())
+        status = self.SerialPort.readline().decode().rstrip() 
         self.ShutterFixed=self.GetStatusShutterFixed()
         self.ShutterTunable=self.GetStatusShutterTunable()
         
@@ -38,30 +39,51 @@ class LaserControl:
     ########################### 
       
     def GetWavelength(self):
+
         self.SerialPort.write("?WV\r\n".encode())
-        status = self.SerialPort.readline().decode().rstrip().split(' ')[-1]
-        return status
+        # Sometimes the output is not cleared so the laser will just output a empty string
+        status = self.SerialPort.readline().decode().rstrip()
+        if status=='CHAMELEON>':
+            status = self.SerialPort.readline().decode().rstrip()
+
+        return int(status.split('>')[1])
     
     def GetPowerTunable(self):
+
         self.SerialPort.write("?UF\r\n".encode())
+        # Sometimes the output is not cleared so the laser will just output a empty string
         status = self.SerialPort.readline().decode().rstrip()
-        return int(status[14:])
+        if status=='CHAMELEON>':
+            status = self.SerialPort.readline().decode().rstrip()
+
+        return int(status.split('>')[1])
     
     def GetStatusShutterTunable(self):
-        self.SerialPort.write("?S \r\n".encode())
+        self.SerialPort.write("?S\r\n".encode())
+        # Sometimes the output is not cleared so the laser will just output a empty string
         status = self.SerialPort.readline().decode().rstrip()
-        if status.find('?')!=-1:  
-            return int(status[15])    
-        else:
-            return int(status[13])
-    def GetStatusTuning(self):
-        self.SerialPort.write("?TS \r\n".encode())
-        status = self.SerialPort.readline().decode().rstrip()
-        return int(status[14:])
+        if status=='CHAMELEON>':
+            status = self.SerialPort.readline().decode().rstrip()
+
+        try:
+            return int(status.split('>')[1])
+        except:
+            sys.exit('LaserControl error: GetStatusShutterTunable: {}'.format(status))
         
+    def GetStatusTuning(self):
+        self.SerialPort.write('?TS\r\n'.encode())
+        # Sometimes the output is not cleared so the laser will just output a empty string
+        status = self.SerialPort.readline().decode().rstrip()
+        if status=='CHAMELEON>':
+            status = self.SerialPort.readline().decode().rstrip()
+            try:
+                return int(status.split('>')[1])
+            except:
+                sys.exit('ControlLaser: Tuning error (status:{})'.format(status))
+     
     def SetWavelengthTunable(self,wave):
         if (int(wave)<660) and (int(wave)>329):
-            self.SerialPort.write("WAVELENGTH={}\r\n".format(int(2*wave)).encode())            
+            self.SerialPort.write("WAVELENGTH={}\r\n".format(int(2*wave)).encode())
             status = self.SerialPort.readline().decode().rstrip()
             a=self.SHG.SetWavelength(int(2*wave))
             b=self.SHG.GetWavelength()
@@ -71,19 +93,18 @@ class LaserControl:
             self.SerialPort.write("WAVELENGTH={}\r\n".format(int(wave)).encode())
             status = self.SerialPort.readline().decode().rstrip()
         else:
-            sys.exit('ControlLaser error: Chosen wavelength outside of the range acheveable.')
-        return int(status[22:])
-    
+            sys.exit('ControlLaser error: Chosen wavelength outside of the range achevable.')
+
     def SetStatusShutterTunable(self,status):
         '''The status of the shutter is defined as False(0) for close and True(1) as open '''
         self.SerialPort.write("S={} \r\n".format(status).encode())
         time.sleep(self.ShutterWaitTime)
-        self.ShutterTunable=self.GetStatusShutterTunable()
-        if self.GetStatusShutterTunable()==0:
+        a=self.GetStatusShutterTunable()
+        if a==0:
             print("The shutter for the tunable output is closed")
-        if self.GetStatusShutterTunable()==1:
+        if a==1:
             print("The shutter for the tunable output is opened")
-    
+
     def WaitForTuning(self):
         while self.GetStatusTuning()==1:
             time.sleep(0.1)
@@ -99,11 +120,8 @@ class LaserControl:
     
     def GetStatusShutterFixed(self):
         self.SerialPort.write("?SFIXED\r\n".encode())
-        status = self.SerialPort.readline().decode().rstrip()
-        if status.find('?')!=-1:  
-            return int(status[8])    
-        else:
-            return int(status[17])
+        status = self.SerialPort.readline().decode().rstrip().split('>')[1]
+        return int(status)
     
     def StatusShutterFixed(self,status):
         '''The status of the shutter is defined as 0 close and 1 as open'''
@@ -128,5 +146,6 @@ if __name__ == "__main__":
     print(Laser.GetWavelength())
     #Laser.SerialPort.write("?SN\r\n".encode())
     #print(Laser.SerialPort.readline().decode().rstrip())
-    Laser.SetWavelengthTunable(1000)
-    Laser.WaitForTuning()
+    Laser.SetStatusShutterTunable(0)
+    Laser.GetStatusShutterTunable()
+    #Laser.WaitForTuning()
