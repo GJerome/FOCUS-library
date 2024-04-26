@@ -115,8 +115,9 @@ class LockInAmplifier:
             time_run=time.time()-t0
             if time_run>time_exp:
                 break
-        return pd.DataFrame({'t':t1,'R1':data_Source1R,'Phase1':data_Source1T,
-                             'R2':np.interp(t1,t2,data_Source2R),'Phase2':np.interp(t1,t2,data_Source2T)})
+        t1=(t1-t1[1])/self.Timebase
+        return pd.DataFrame({'t':t1[1:],'R1':data_Source1R[1:],'Phase1':data_Source1T[1:],
+                             'R2':np.interp(t1[1:],t2[1:],data_Source2R[1:]),'Phase2':np.interp(t1[1:],t2[1:],data_Source2T[1:])})
     
     def AcquisitionLoopLegacy(self,time_exp):
         #############################
