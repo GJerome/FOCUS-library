@@ -4,3 +4,6 @@ __pycache__/
 Atrier/
 DataAnalysis/DataPLQY/
 DataAnalysis/DataStreakPL/
+
+# Data file to ignore
+*.pkl
