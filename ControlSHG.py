@@ -27,7 +27,7 @@ class SHG:
         self.device.write('NWL{},'.format(wave).encode())
         status=self.device.readline()
         if status[3:-1]!=b'\x00\x00\x02':
-            print('SHG Warning:Problem setting up the wavelength (status:{})'.format(self.GetCommand('GST,')))
+            print('SHG Warning:Problem setting up the wavelength (return:{},status:{})'.format(status,self.GetCommand('GST,')))
             return False
         else:
             return True
@@ -51,5 +51,5 @@ if __name__ == "__main__":
 
     SHGDevice = SHG('COM17')
     print(SHGDevice.GetWavelength())
-    SHGDevice.SetWavelength(1289)
+    SHGDevice.SetWavelength(800)
     print(SHGDevice.GetWavelength())

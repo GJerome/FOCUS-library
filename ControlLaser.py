@@ -76,10 +76,10 @@ class LaserControl:
         status = self.SerialPort.readline().decode().rstrip()
         if status=='CHAMELEON>':
             status = self.SerialPort.readline().decode().rstrip()
-            try:
-                return int(status.split('>')[1])
-            except:
-                sys.exit('ControlLaser: Tuning error (status:{})'.format(status))
+        try:
+            return int(status.split('>')[1])
+        except:
+            sys.exit('ControlLaser: Tuning error (status:{})'.format(status))
      
     def SetWavelengthTunable(self,wave):
         if (int(wave)<660) and (int(wave)>329):
@@ -106,7 +106,9 @@ class LaserControl:
             print("The shutter for the tunable output is opened")
 
     def WaitForTuning(self):
-        while self.GetStatusTuning()==1:
+        status=self.GetStatusTuning()
+        while status==1:
+            status=self.GetStatusTuning()
             time.sleep(0.1)
 
     ###########################
@@ -144,8 +146,10 @@ class LaserControl:
 if __name__ == "__main__":
     Laser= LaserControl('COM8','COM17',2)
     print(Laser.GetWavelength())
-    #Laser.SerialPort.write("?SN\r\n".encode())
-    #print(Laser.SerialPort.readline().decode().rstrip())
-    Laser.SetStatusShutterTunable(0)
-    Laser.GetStatusShutterTunable()
+
+    Laser.SetStatusShutterTunable(1)
+    Laser.SetWavelengthTunable(500)
+    Laser.WaitForTuning()
+    #Laser.GetStatusShutterTunable()
+
     #Laser.WaitForTuning()

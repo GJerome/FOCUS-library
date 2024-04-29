@@ -191,9 +191,9 @@ class LockInAmplifier:
     def AutorangeSource(self):
         #Beware there is already a time sleep 
         a=self.SetPathValue('/dev2940/sigins/1/autorange', 1)
-        time.sleep(3)
+        time.sleep(5.5)
         a=self.SetPathValue('/dev2940/sigins/0/autorange', 1)
-        time.sleep(3)
+        time.sleep(5.5)
         
 
     def SetOutputTA(self,TriggerInput):
