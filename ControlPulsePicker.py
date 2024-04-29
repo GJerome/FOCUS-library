@@ -138,6 +138,6 @@ if __name__ == "__main__":
     #pp.SetDivRatio(20)
     #print(pp.Instrument.query_ascii_values('*IDN?'))
     #print(pp.parameterDict)
-    #pp.SetPower(17500)
-    print(pp.SetPowerState(0))
+    pp.SetPower(2000)
+    print(pp.SetPowerState(1))
     #print(pp.GetPower())
