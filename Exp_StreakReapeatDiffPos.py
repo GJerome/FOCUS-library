@@ -15,17 +15,17 @@ os.system('cls')
 #############################
 
 
-Nb_points=4
-DistancePts=0.1
+Nb_points=5
+DistancePts=0.05
 
 # Streak camera parameter
-Nb_exposure=150
-Nb_loop=50
-MCP_Gain=35
+Nb_exposure=20
+Nb_loop=200
+MCP_Gain=25
 
 # Start Rough stage
-startx=4.1
-starty=8.75
+startx=6.62
+starty=6.96
 
 
 # Misc parameter
@@ -44,7 +44,7 @@ InstrumentsPara={}
 # Initialisation of laser
 #############################
 
-Laser= las.LaserControl('COM8',0.5)
+Laser= las.LaserControl('COM8','COM17',0.5)
 
 InstrumentsPara['Laser']=Laser.parameterDict
 print('Initialised Laser')
@@ -91,12 +91,12 @@ MesNumber=np.linspace(1,Nb_points,Nb_points)
 IteratorMes=np.nditer(MesNumber, flags=['f_index'])
 
 print("Begin acquisition")
-Laser.StatusShutterTunable(1)
+Laser.SetStatusShutterTunable(1)
 for k in  IteratorMes:
     print('Measurement number:{}'.format(MesNumber[IteratorMes.index]))
     os.mkdir(DirectoryPath+'\\Mes'+str(MesNumber[IteratorMes.index])) 
 
-    x_axis.MoveTo(x_axis.GetPosition()+(MesNumber[IteratorMes.index]+1)*DistancePts)
+    x_axis.MoveTo(startx+(MesNumber[IteratorMes.index]+1)*DistancePts)
     
 
     # Acquisition loop   
@@ -109,5 +109,5 @@ for k in  IteratorMes:
     sc.SaveSeq(DirectoryPath+'\\Mes'+str(MesNumber[IteratorMes.index])+'\\000001.img')
 
 sc.Set_MCPGain(0)
-Laser.StatusShutterTunable(0)
+Laser.SetStatusShutterTunable(0)
 print('Experiment finished')
