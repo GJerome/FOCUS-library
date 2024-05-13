@@ -1,7 +1,7 @@
 import ControlLockInAmplifier as lock
 import ControlLaser as las
 import ControlPulsePicker as picker
-import ControlStreakCamera as StreakCamera
+import ControlEMCCD as EMCCD
 import FileControl 
 import ControlConex as Rtransla
 
@@ -15,7 +15,7 @@ os.system('cls')
 #############################
 
 
-Nb_points=5
+Nb_points=10
 DistancePts=0.05
 
 # Streak camera parameter
@@ -24,15 +24,15 @@ Nb_loop=200
 MCP_Gain=25
 
 # Start Rough stage
-startx=6.62
-starty=6.96
+startx=4.19
+starty=4.85
 
 
 # Misc parameter
 FileNameData='DataStreakRepeatPos_'
 
 
-GeneralPara={'Experiment name':' StreakRepeatDiffPos','Nb points':Nb_points,
+GeneralPara={'Experiment name':' EMCCDRepeatDiffPos','Nb points':Nb_points,
              'Distance Between Points ':DistancePts,
              'Note':'The SHG unit from Coherent was used'}
 
@@ -66,20 +66,17 @@ print('Initialised rough translation stage')
 x_axis.MoveTo(startx)
 y_axis.MoveTo(starty)
 #############################
-# Initialisation of the streak camera
+# Initialisation of the EMCCD
 #############################
 
-sc=StreakCamera.StreakCamera(PortCmd=1001,PortData=1002,Buffer=1024,IniFile='C:\ProgramData\Hamamatsu\HPDTA\SingleSweepExp.ini')
-sc.Set_NumberIntegration('AI',Nb_exposure)
-sc.Set_MCPGain(MCP_Gain)
-InstrumentsPara['Streak camera']={'Nb_exposure':Nb_exposure,'Nb_loop':Nb_loop,'MCP gain':MCP_Gain}
-
+camera=EMCCD.LightFieldControl('TimeTraceEM')
+print('Initialised EMCCD')
 
 #############################
 # Preparation of the directory
 #############################
-print('Directory staging, please check other window')
-DirectoryPath=FileControl.PrepareDirectory(GeneralPara,InstrumentsPara)
+#print('Directory staging, please check other window')
+#DirectoryPath=FileControl.PrepareDirectory(GeneralPara,InstrumentsPara)
 
 
 #############################
@@ -91,23 +88,17 @@ MesNumber=np.linspace(1,Nb_points,Nb_points)
 IteratorMes=np.nditer(MesNumber, flags=['f_index'])
 
 print("Begin acquisition")
-Laser.SetStatusShutterTunable(1)
+Laser.SetStatusShutterTunable(0)
 for k in  IteratorMes:
     print('Measurement number:{}'.format(MesNumber[IteratorMes.index]))
-    os.mkdir(DirectoryPath+'\\Mes'+str(MesNumber[IteratorMes.index])) 
+    #os.mkdir(DirectoryPath+'\\Mes'+str(MesNumber[IteratorMes.index])) 
 
     x_axis.MoveTo(startx+(MesNumber[IteratorMes.index]+1)*DistancePts)
-    
+    camera.Acquire()
+    time.sleep(1)# This is just to wait for the exp to begin
+    Laser.SetStatusShutterTunable(1)
+    camera.WaitForAcq()    
+    Laser.SetStatusShutterTunable(0)
 
-    # Acquisition loop   
-    sc.ShutterOpen()
-    sc.StartSeq('Analog Integration',Nb_loop)
-    sc.AsyncStatusReady()
-    sc.ShutterClose()
-    sc.BckgSubstraction()
-    # Save the data  
-    sc.SaveSeq(DirectoryPath+'\\Mes'+str(MesNumber[IteratorMes.index])+'\\000001.img')
-
-sc.Set_MCPGain(0)
-Laser.SetStatusShutterTunable(0)
+time.sleep(5)
 print('Experiment finished')

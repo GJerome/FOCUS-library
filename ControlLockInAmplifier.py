@@ -116,6 +116,7 @@ class LockInAmplifier:
             if time_run>time_exp:
                 break
         t1=(t1-t1[1])/self.Timebase
+        t2=(t2-t2[1])/self.Timebase
         return pd.DataFrame({'t':t1[1:],'R1':data_Source1R[1:],'Phase1':data_Source1T[1:],
                              'R2':np.interp(t1[1:],t2[1:],data_Source2R[1:]),'Phase2':np.interp(t1[1:],t2[1:],data_Source2T[1:])})
     
