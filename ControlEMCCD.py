@@ -90,6 +90,10 @@ class LightFieldControl:
         # Acquire an image
         if self.experiment.IsRunning ==False and self.experiment.IsReadyToRun == True:        
             self.experiment.Acquire()
+    def WaitForAcq(self):
+        '''Wait for the experiement to finish running.'''
+        while self.experiment.IsRunning ==True:    
+            time.sleep(0.5)
 
     def SetSavefileName(self,Filename):
         self.experiment.SetValue(ExperimentSettings.FileNameGenerationBaseFileName,Path.GetFileName(Filename))
@@ -111,3 +115,4 @@ if __name__ == "__main__":
         sys.exit()
     if emccd.Status==True:
         emccd.Acquire()
+        emccd.WaitForAcq()
