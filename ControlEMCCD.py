@@ -41,7 +41,7 @@ def device_found(experiment):
 
 class LightFieldControl:
 
-    sensor_temperature = float(-55) 
+    sensor_temperature = float(-45) 
 
     def __init__(self,ExperimentName):
         assert not isinstance(self.sensor_temperature, int), "sensor_temperature crashes LightField if it's an integer"
