@@ -7,30 +7,32 @@ import matplotlib.pyplot as plt
 
 import ControlLockInAmplifier as lock
 
-
-
+if __name__=='__main__':
+    global DataPiezo
+    DataPiezo=pd.DataFrame(index=['t','x','y','z'])
+    global DataLock
+    DataLock=pd.DataFrame()
 #############################
 # Data function
 #############################
 def DataAcq_Lockin(LockInDevice,t,event):
     LockInDevice.AutorangeSource()
-    data=LockInDevice.AcquisitionLoop(t)
-
+    DataLock=LockInDevice.AcquisitionLoop(t)
     event.set()
-    print(data)
 
 def MonitorPiezo(x_axis,y_axis,z_axis,event):
     # I think in this specific cas we have to use event as we want to monitor the piezo position
     # as the measurement is actually happening. So the other thread will set an event 
 
-    Data=pd.DataFrame(index=['t','x','y','z'])
+
     t0=time.time()
     while event.is_set(): 
         x=x_axis.GetPosition()
         y=y_axis.GetPosition()
         z=z_axis.GetPosition()
         t1=time.time()-t0
-        Data.append({'t':t1,'x':x,'y':y,'z':z})
+        DataPiezo.append({'t':t1,'x':x,'y':y,'z':z})
+    print(DataPiezo)
 
 if __name__=='__main__':
     
@@ -72,6 +74,7 @@ if __name__=='__main__':
 
     th1.start()
     th2.start()
-
-    plt.plot()
+    ax1,fig1=plt.subplots(1,1,1)
+    ax1.plot(DataLock.iloc['Time'],DataLock.iloc['Time'])
+    ax1.plot(DataPiezo.iloc['t'],DataLock.iloc['x'])
     
