@@ -1,9 +1,10 @@
 import serial
-import time
 import sys
+import numpy as np
 
 class PiezoControl:
-    """ This class control the piezo. """   
+    """ This class control the piezo. All three axis are bundle in this object and one must use PiezoAxisControl
+     for consistency with the conex controller."""   
 
     def __init__(self,ComPortLaser):        
 
@@ -38,6 +39,15 @@ class PiezoControl:
     def GetZ(self):
         return float(self.GetCommand('rk,2').split(',')[2])
     
+    
+    # Set position on all axis
+    def SetX(self,pos):
+        self.SetCommand('set,0,{}'.format(np.round(float(pos),2)))
+    def SetY(self,pos):
+        self.SetCommand('set,1,{}'.format(np.round(float(pos),2)))
+    def SetZ(self,pos):
+        self.SetCommand('set,2,{}'.format(np.round(float(pos),2)))
+    
     # Misc command    
     def SetCommand(self,cmd):
         self.SerialPort.write('{}\r\n'.format(cmd).encode())
@@ -46,6 +56,32 @@ class PiezoControl:
         status = self.SerialPort.read_until(b'\r').decode().rstrip()
         return status
     
+
+class PiezoAxisControl:
+    '''This calls is to control individual element of the piezo. The accepted value for the axis variable are  x,y,z. '''
+    def __init__(self,piezo,axis):
+
+        self.piezo=piezo
+        self.axis=axis
+
+    def MoveTo(self,pos):
+        if self.axis=='x':
+            self.piezo.SetX(pos)
+        elif self.axis=='y':
+            self.piezo.SetY(pos)
+        elif self.axis=='z':
+            self.piezo.SetZ(pos)
+
+    def GetPosition(self):
+        if self.axis=='x':
+            self.piezo.GetX()
+        elif self.axis=='y':
+            self.piezo.GetY()
+        elif self.axis=='z':
+            self.piezo.GetZ()
+            
+            
 if __name__ == "__main__":
     piezo= PiezoControl('COM15')
-    print(piezo.parameterDict)
+    # Sample plane is xz
+    piezo.SetX(40)
