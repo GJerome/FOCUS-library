@@ -3,33 +3,28 @@ import ControlLaser as las
 import ControlPulsePicker as picker
 import ControlEMCCD as EMCCD
 import FileControl 
-import ControlConex as Rtransla
+#import ControlConex as Rtransla
+import ControlPiezoStage as Ftransla
 
 import numpy as np
 import time as time
 import os
+import sys
 
 os.system('cls')
 #############################
 # Global parameter
 #############################
 
+# Carefull now using piezo 
+Nb_points=5
 
-Nb_points=10
-DistancePts=0.05
+DistancePts=10
 
-# Streak camera parameter
-Nb_exposure=20
-Nb_loop=200
-MCP_Gain=25
+# Start piezo stage
+startx=0
+starty=0
 
-# Start Rough stage
-startx=4.19
-starty=4.85
-
-
-# Misc parameter
-FileNameData='DataStreakRepeatPos_'
 
 
 GeneralPara={'Experiment name':' EMCCDRepeatDiffPos','Nb points':Nb_points,
@@ -59,10 +54,17 @@ print('Initialised pulse picker')
 #############################
 # Initialisation of the Conex Controller
 #############################
+if 'ControlConex' in sys.modules:
+    x_axis=Rtransla.ConexController('COM12')
+    y_axis=Rtransla.ConexController('COM13')
+    print('Initialised rough translation stage')
 
-x_axis=Rtransla.ConexController('COM12')
-y_axis=Rtransla.ConexController('COM13')
-print('Initialised rough translation stage')
+elif 'ControlPiezoStage' in sys.modules:
+    piezo= Ftransla.PiezoControl('COM15')
+    x_axis=Ftransla.PiezoAxisControl(piezo,'x')
+    y_axis=Ftransla.PiezoAxisControl(piezo,'y')
+    print('Initialised piezo translation stage')
+
 x_axis.MoveTo(startx)
 y_axis.MoveTo(starty)
 #############################
@@ -72,11 +74,7 @@ y_axis.MoveTo(starty)
 camera=EMCCD.LightFieldControl('TimeTraceEM')
 print('Initialised EMCCD')
 
-#############################
-# Preparation of the directory
-#############################
-#print('Directory staging, please check other window')
-#DirectoryPath=FileControl.PrepareDirectory(GeneralPara,InstrumentsPara)
+
 
 
 #############################
@@ -99,6 +97,7 @@ for k in  IteratorMes:
     Laser.SetStatusShutterTunable(1)
     camera.WaitForAcq()    
     Laser.SetStatusShutterTunable(0)
+    #time.sleep(10)
 
 time.sleep(5)
 print('Experiment finished')
