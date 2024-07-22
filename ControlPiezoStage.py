@@ -74,14 +74,19 @@ class PiezoAxisControl:
 
     def GetPosition(self):
         if self.axis=='x':
-            self.piezo.GetX()
+            return self.piezo.GetX()
         elif self.axis=='y':
-            self.piezo.GetY()
+            return self.piezo.GetY()
         elif self.axis=='z':
-            self.piezo.GetZ()
+            return self.piezo.GetZ()
             
             
 if __name__ == "__main__":
     piezo= PiezoControl('COM15')
+    x_axis=PiezoAxisControl(piezo,'x')
+    y_axis=PiezoAxisControl(piezo,'y')
+    z_axis=PiezoAxisControl(piezo,  'z')
     # Sample plane is xz
-    piezo.SetX(40)
+    y_axis.MoveTo(0)
+    z_axis.MoveTo(30)
+    print(x_axis.GetPosition())
