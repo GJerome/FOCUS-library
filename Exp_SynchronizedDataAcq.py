@@ -7,32 +7,36 @@ import matplotlib.pyplot as plt
 
 import ControlLockInAmplifier as lock
 
-if __name__=='__main__':
-    global DataPiezo
-    DataPiezo=pd.DataFrame(index=['t','x','y','z'])
-    global DataLock
-    DataLock=pd.DataFrame()
 #############################
 # Data function
 #############################
+if __name__=='__main__':
+    b=th.Barrier(2)
+
 def DataAcq_Lockin(LockInDevice,t,event):
     LockInDevice.AutorangeSource()
+    global DataLock
+    b.wait()
     DataLock=LockInDevice.AcquisitionLoop(t)
     event.set()
 
 def MonitorPiezo(x_axis,y_axis,z_axis,event):
     # I think in this specific cas we have to use event as we want to monitor the piezo position
-    # as the measurement is actually happening. So the other thread will set an event 
-
-
-    t0=time.time()
-    while event.is_set(): 
-        x=x_axis.GetPosition()
-        y=y_axis.GetPosition()
-        z=z_axis.GetPosition()
-        t1=time.time()-t0
-        DataPiezo.append({'t':t1,'x':x,'y':y,'z':z})
-    print(DataPiezo)
+    # as the measurement is actually happening. So both thread will wait for each other as the measurement is happening 
+    # the other thread will set an event that will trigger the end of this thread.    
+    x=np.empty(0)
+    y=np.empty(0)
+    z=np.empty(0)
+    t=np.empty(0)
+    b.wait()
+    while not event.is_set(): 
+        x=np.append(x,x_axis.GetPosition())
+        y=np.append(y,y_axis.GetPosition())
+        z=np.append(z,z_axis.GetPosition())
+        t=np.append(t,time.time())
+    t=t-np.min(t)    
+    global DataPiezo
+    DataPiezo=pd.DataFrame({'t':t,'x':x,'y':y,'z':z})
 
 if __name__=='__main__':
     
@@ -74,7 +78,12 @@ if __name__=='__main__':
 
     th1.start()
     th2.start()
-    ax1,fig1=plt.subplots(1,1,1)
-    ax1.plot(DataLock.iloc['Time'],DataLock.iloc['Time'])
-    ax1.plot(DataPiezo.iloc['t'],DataLock.iloc['x'])
+    th1.join()
+
+    fig1,ax1=plt.subplots(4,1)
+    ax1[0].plot(DataLock.loc[:,'t'],DataLock.loc[:,'R1'])
+    ax1[1].scatter(DataPiezo.loc[:,'t'],DataPiezo.loc[:,'x'])
+    ax1[2].scatter(DataPiezo.loc[:,'t'],DataPiezo.loc[:,'y'])
+    ax1[3].scatter(DataPiezo.loc[:,'t'],DataPiezo.loc[:,'z'])
+    plt.show()
     
