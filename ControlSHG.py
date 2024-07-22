@@ -35,13 +35,15 @@ class SHG:
     #Serial backend command  
     def GetCommand(self, cmdSend):       
          
-        cmd = cmdSend+'\r'
+        cmd = cmdSend
         self.device.write(cmd.encode())
-        return self.device.readline().decode().rstrip()
+        status=self.device.readline()
+        return status
+        
 
     def SetCommand(self, cmdSend):       
          
-        cmd = cmdSend+'\r'
+        cmd = cmdSend
         self.device.write(cmd.encode())
 
     def __del__(self):
@@ -51,5 +53,6 @@ if __name__ == "__main__":
 
     SHGDevice = SHG('COM17')
     print(SHGDevice.GetWavelength())
-    SHGDevice.SetWavelength(800)
+    print(SHGDevice.SetCommand('NWL0850,'))
+    print(SHGDevice.SetCommand('SMS+037,'))
     print(SHGDevice.GetWavelength())
