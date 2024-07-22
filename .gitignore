@@ -7,4 +7,4 @@ DataAnalysis/DataStreakPL/
 
 # Data file to ignore
 *.pkl
-./DataAnalysis/Misc_LaserParam.ipynb
+DataAnalysis/Misc_LaserParam.ipynb
