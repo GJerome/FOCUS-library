@@ -59,9 +59,12 @@ print('Initialised pulse picker')
 #############################
 # Initialisation of the Conex Controller
 #############################
-
-x_axis=Rtransla.ConexController('COM12')
-y_axis=Rtransla.ConexController('COM13')
+piezo= PiezoControl('COM15')
+x_axis=PiezoAxisControl(piezo,'x')
+y_axis=PiezoAxisControl(piezo,'y')
+z_axis=PiezoAxisControl(piezo,'z')
+#x_axis=Rtransla.ConexController('COM12')
+#y_axis=Rtransla.ConexController('COM13')
 print('Initialised rough translation stage')
 x_axis.MoveTo(startx)
 y_axis.MoveTo(starty)
