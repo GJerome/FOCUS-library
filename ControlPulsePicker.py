@@ -68,9 +68,10 @@ class PulsePicker:
     def GetPower(self):
         '''Read current pulse power. The value is scaled in mW, 0.1 Wsteps'''
         try:
-            return int(self.QueryCommand('POWER?'))
+            temp=self.QueryCommand('POWER?')
+            return int(temp)
         except ValueError:
-            print('Problem getting Pulse picker power.')
+            print('Problem getting Pulse picker power:{}'.format(temp))
             return 0    
     def GetPulseWidth(self):
         '''Read current pulse width. Value is scaled in 0.1ns.'''

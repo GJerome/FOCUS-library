@@ -2,12 +2,15 @@ import ControlLockInAmplifier as lock
 import ControlLaser as las
 import ControlPulsePicker as picker
 import ControlStreakCamera as StreakCamera
+import ControlPiezoStage as piezoC
 import FileControl 
 import ControlConex as Rtransla
 
 import numpy as np
 import time as time
 import os
+import sys
+
 
 os.system('cls')
 #############################
@@ -59,15 +62,16 @@ print('Initialised pulse picker')
 #############################
 # Initialisation of the Conex Controller
 #############################
-piezo= PiezoControl('COM15')
-x_axis=PiezoAxisControl(piezo,'x')
-y_axis=PiezoAxisControl(piezo,'y')
-z_axis=PiezoAxisControl(piezo,'z')
+piezo= piezoC.PiezoControl('COM15')
+x_axis=piezoC.PiezoAxisControl(piezo,'x')
+y_axis=piezoC.PiezoAxisControl(piezo,'y')
+z_axis=piezoC.PiezoAxisControl(piezo,'z')
 #x_axis=Rtransla.ConexController('COM12')
 #y_axis=Rtransla.ConexController('COM13')
 print('Initialised rough translation stage')
 x_axis.MoveTo(startx)
 y_axis.MoveTo(starty)
+sys.exit() 
 #############################
 # Initialisation of the streak camera
 #############################
