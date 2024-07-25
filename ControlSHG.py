@@ -26,6 +26,8 @@ class SHG:
             port=COMPortSHG, baudrate=38400, parity='N', stopbits=1, timeout=3)
         if CalibrationFile != None:
             self.Calibration = pd.read_csv(CalibrationFile)
+        else:
+            self.Calibration=pd.DataFrame({'Wavelength':[0],'delta':[0]})
 
 #####################
 # Getters
@@ -95,5 +97,4 @@ if __name__ == "__main__":
     SHGDevice = SHG('COM17')
     print(SHGDevice.GetWavelength())
     print(SHGDevice.SetCommand('NWL0850,'))
-    print(SHGDevice.SetCommand('SMS+037,'))
     print(SHGDevice.GetWavelength())
