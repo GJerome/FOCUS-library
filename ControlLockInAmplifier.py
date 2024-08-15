@@ -229,4 +229,5 @@ if __name__ == "__main__":
     LockInParaFile='ParameterLockInTA.txt'
 
     lock=LockInAmplifier(LockInParaFile)
-    print(lock.AcquisitionLoop(0.5))
+    data=lock.AcquisitionLoop(0.5)
+    print(1/data.loc[:,'R1'].mean())
