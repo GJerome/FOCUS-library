@@ -41,7 +41,7 @@ def device_found(experiment):
 
 class LightFieldControl:
 
-    sensor_temperature = float(-45) 
+    sensor_temperature = float(-55) 
 
     def __init__(self,ExperimentName):
         assert not isinstance(self.sensor_temperature, int), "sensor_temperature crashes LightField if it's an integer"
@@ -106,13 +106,32 @@ class LightFieldControl:
             return True
         else:
             return False
+        
+    def GetSettingValue(self,setting, value):    
+        # Check for existence before setting, return true if it exist
+        if self.experiment.Exists(setting):        
+            return self.experiment.GetValue(setting)
+        else:
+            print('ControlEMCCD:Problem getting value')
+        
+    def print_setting(self,setting):
+        # Check for existence before
+        # getting gain, adc rate, or adc quality
+        if self.experiment.Exists(setting):
+            print(String.Format(
+                '{0} {1} = {2}', "\tReading ",
+                str(setting),
+                self.experiment.GetValue(setting)))
+    
 
 if __name__ == "__main__":
     emccd=LightFieldControl(ExperimentName='TimeTraceEM')
+    emccd.print_setting(CameraSettings.AcquisitionReadoutRate)
     time.sleep(10)
     if emccd.Status==False:
         print("The experiment couldn't be setup please close all instance of Lightfield, check connection and retry.")
         sys.exit()
     if emccd.Status==True:
-        emccd.Acquire()
-        emccd.WaitForAcq()
+        #emccd.Acquire()
+        #emccd.WaitForAcq()
+        print('')
