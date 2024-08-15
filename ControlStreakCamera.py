@@ -11,7 +11,7 @@ class StreakCamera:
 
         self.IPadress='127.0.0.1'
         self.portCMD = sk.socket(sk.AF_INET, sk.SOCK_STREAM)
-        self.portCMD.settimeout(10)
+        self.portCMD.settimeout(30)
         self.portData = sk.socket(sk.AF_INET, sk.SOCK_STREAM)
 
         try:
@@ -118,7 +118,7 @@ class StreakCamera:
     def AsyncStatusReady(self):
         while True:
             try:
-                a=self.Sendcommand('AsyncCommandStatus()',1024)
+                a=self.Sendcommand('AsyncCommandStatus()',2048)
             except TimeoutError:
                 print('Timeout Async')
                 break
