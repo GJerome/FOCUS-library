@@ -3,10 +3,10 @@ import ControlLaser as las
 import ControlPulsePicker as picker
 import ControlEMCCD as EMCCD
 import FileControl
-# import ControlConex as Rtransla
 import ControlPiezoStage as Transla
 
 import numpy as np
+import pandas as pd
 import time as time
 import os
 import sys
@@ -54,7 +54,8 @@ InstrumentsPara = {}
 ###################
 # Proba density function Power
 ###################
-P = (0, 1, 10, 100, 1000)  # power
+P = (0, 1, 10, 100, 1000)  # power in uW
+P_calib = (500, 500, 500, 500, 500)  # Power from the pp to reach values of P
 
 p0 = [0.2, 0.2, 0.2, 0.2, 0.2]
 p1 = [0.3, 0.175, 0.175, 0.175, 0.175]
@@ -138,7 +139,7 @@ MesNumber = np.linspace(1, Nb_Points, Nb_Points, endpoint=False)
 IteratorMes = np.nditer(MesNumber, flags=['f_index'])
 
 CycNumber = np.linspace(1, Nb_Cycle, Nb_Cycle, endpoint=False)
-IteratorCyc = np.nditer(MesNumber, flags=['f_index'])
+IteratorCyc = np.nditer(CycNumber, flags=['f_index'])
 
 Laser.SetStatusShutterTunable(1)
 
@@ -152,22 +153,42 @@ for k in IteratorMes:
     y_axis.MoveTo(Pos[MesNumber[IteratorMes.index], 1])
 
     # Intensity/Power Cycle generation
-    p_cyc = rng.choice(P, Nb_Cycle, p=ProbaP)
     t_cyc = rng.choice(t, Nb_Cycle, p=ProbaT)
+    # First we generate an array of cycle which only contains index for the moment
+    temp = rng.choice(np.linspace(0, len(P), len(
+        P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
+    if temp[0] == 0:  # We assume that the first element of P is the zero power element
+        temp[0] = rng.choice(P[1:], 1, p=ProbaP[1:]/np.sum(ProbaP[1:]))
 
-    if p_cyc[0] == 0:
-        p_cyc[0] = rng.choice(P[1:], 1, p=ProbaP[1:]/np.sum(ProbaP))
-
+    p_cyc_calib = np.array([P_calib[i] for i in temp])
+    p_cyc = np.array([P[i] for i in temp])
+    # Save all the cycle in the folder
+    temp = pd.DataFrame(
+        {'Exposure Time': t_cyc, 'Power send': p_cyc, 'Power Pulse-picker': p_cyc_calib})
+    temp.to_csv(TempDirPath+'/Cycle.csv')
     T_tot = np.sum(t_cyc)
 
     # Camera setting adjustement
     NbFrameCycle = np.ceil((T_tot+StabilityTime)/FrameTime)
     camera.SetNumberOfFrame(NbFrameCycle)
-    # Acquire loop
-    camera.Acquire()
+    FM.ChangeState(0)
+    camera.Acquire()  # Launch acquisition
+    # Power iteration
     for j in IteratorCyc:
-
+        if p_cyc[IteratorCyc.index] == 0:
+            FM.ChangeState(0)
+        elif p_cyc[IteratorCyc.index] != 0 and FM.GetFlipState() == 0:
+            FM.ChangeState(1)
+            pp.SetPower(p_cyc_calib[IteratorCyc.index])
+        elif p_cyc[IteratorCyc.index] != 0 and FM.GetFlipState() == 1:
+            pp.SetPower(p_cyc_calib[IteratorCyc.index])
+        time.sleep(t_cyc[IteratorCyc.index])
+    # once it finished we set the power to the minimum and contniue measurement
+    FM.ChangeState(1)
+    pp.SetPower(np.min(p_cyc_calib))
     camera.WaitForAcq()
+    FM.ChangeState(0)
+    IteratorCyc.reset()
 
 
 Laser.SetStatusShutterTunable(0)

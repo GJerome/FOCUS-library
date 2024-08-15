@@ -2,6 +2,7 @@ try:
     from pylablib.devices import Thorlabs
 except:
     print("pls execute pip install pylablib")
+import time
 
 
 class FlipMount:
@@ -12,9 +13,17 @@ class FlipMount:
 
     def ChangeState(self, state):
         '''Go to a specific state. If you are using it as a shutter please ensure that
-        state 1 is transmitting ans state 0 is blocking.'''
+        state 1 is transmitting ans state 0 is blocking. The function
+        is blocking while the flip mount is moving '''
         if self.Device.get_state() != state:
             self.Device.move_to_state(int(state))
+        while self.GetFlipState() == None:
+            time.sleep(0.1)
+
+    def GetFlipState(self):
+        '''Get flipper state. If you are using it as a shutter please ensure that
+        state 1 is transmitting ans state 0 is blocking.'''
+        return self.Device.get_state()
 
     def FlipState(self):
         if self.Device.get_state() == 0:
