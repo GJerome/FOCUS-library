@@ -1,7 +1,12 @@
-# This file allows the control of the EMCCD using the lightfield 
+# This file allows the control of the EMCCD using the lightfield
 
+from PrincetonInstruments.LightField.AddIns import SensorTemperatureStatus
+from PrincetonInstruments.LightField.AddIns import CameraSettings
+from PrincetonInstruments.LightField.AddIns import DeviceType
+from PrincetonInstruments.LightField.AddIns import ExperimentSettings
+from PrincetonInstruments.LightField.Automation import Automation
 import clr
-#clr.AddReference('System')
+# clr.AddReference('System')
 import sys
 import os
 import time
@@ -11,7 +16,8 @@ try:
     from System import String
     from System.Collections.Generic import List
 except:
-    sys.exit('Please unistall clr and pythonnet and run py -m pip install -U pythonnet ')
+    sys.exit(
+        'Please unistall clr and pythonnet and run py -m pip install -U pythonnet ')
 
 
 # Add needed dll references
@@ -23,11 +29,7 @@ clr.AddReference('PrincetonInstruments.LightFieldAddInSupportServices')
 
 
 # PI imports
-from PrincetonInstruments.LightField.Automation import Automation
-from PrincetonInstruments.LightField.AddIns import ExperimentSettings
-from PrincetonInstruments.LightField.AddIns import DeviceType
-from PrincetonInstruments.LightField.AddIns import CameraSettings
-from PrincetonInstruments.LightField.AddIns import SensorTemperatureStatus
+
 
 def device_found(experiment):
     # Find connected device
@@ -39,12 +41,14 @@ def device_found(experiment):
     print("Camera not found. Please add a camera and try again.")
     return False
 
+
 class LightFieldControl:
 
-    sensor_temperature = float(-55) 
+    sensor_temperature = float(-55)
 
-    def __init__(self,ExperimentName):
-        assert not isinstance(self.sensor_temperature, int), "sensor_temperature crashes LightField if it's an integer"
+    def __init__(self, ExperimentName):
+        assert not isinstance(
+            self.sensor_temperature, int), "sensor_temperature crashes LightField if it's an integer"
 
         # Create the LightField Application (true for visible)
         # The 2nd parameter forces LF to load with no experiment
@@ -52,70 +56,97 @@ class LightFieldControl:
 
         # Get experiment object
         self.experiment = self.auto.LightFieldApplication.Experiment
-    
+
         if device_found(self.experiment) == True:
             self.LoadExperiment(ExperimentName)
-            self.Status=True
+            self.Status = True
 
             # Sensor_temperature needs to be a float, otherwise experiment.SetValue() crashes the program
 
-
-            #First we check if the temperature is correctly set
-            if (self.experiment.IsReadyToRun & self.experiment.IsRunning==False):
-                self.experiment.SetValue(CameraSettings.SensorTemperatureSetPoint, self.sensor_temperature)
+            # First we check if the temperature is correctly set
+            if (self.experiment.IsReadyToRun & self.experiment.IsRunning == False):
+                self.experiment.SetValue(
+                    CameraSettings.SensorTemperatureSetPoint, self.sensor_temperature)
                 # try:
                 # # except Exception as e:
                 # #     return e
                 # except:
                 #     pass
             # And we wait for the temperature to be settled
-            while( self.experiment.GetValue(CameraSettings.SensorTemperatureReading)!= self.sensor_temperature):
+            while (self.experiment.GetValue(CameraSettings.SensorTemperatureReading) != self.sensor_temperature):
                 time.sleep(3)
-                print('Temperature of the camera : {}'.format(self.experiment.GetValue(CameraSettings.SensorTemperatureReading)))  
-            self.LoadExperiment(ExperimentName) 
-            
-        else:
-            
-            self.Status=False
-        
+                print('Temperature of the camera : {}'.format(
+                    self.experiment.GetValue(CameraSettings.SensorTemperatureReading)))
+            self.LoadExperiment(ExperimentName)
 
-        
-    def LoadExperiment(self,Name):
-        result= self.experiment.Load(Name)
-        if result ==False :
+        else:
+
+            self.Status = False
+        self.parameterDict = {'Frame time': self.GetFrameTime(
+        ), 'Integration Time': self.GetExposureTime()}
+
+    def LoadExperiment(self, Name):
+        result = self.experiment.Load(Name)
+        if result == False:
             print('Error loading experiment!')
             sys.exit()
 
     def Acquire(self):
         # Acquire an image
-        if self.experiment.IsRunning ==False and self.experiment.IsReadyToRun == True:        
+        if self.experiment.IsRunning == False and self.experiment.IsReadyToRun == True:
             self.experiment.Acquire()
+
     def WaitForAcq(self):
         '''Wait for the experiement to finish running.'''
         print('test')
-        while self.experiment.IsRunning ==True:    
+        while self.experiment.IsRunning == True:
             time.sleep(0.5)
 
-    def SetSavefileName(self,Filename):
-        self.experiment.SetValue(ExperimentSettings.FileNameGenerationBaseFileName,Path.GetFileName(Filename))
+    #####################
+    # Getters
+    ####################
+    def GetSettingValue(self, setting):
+        if self.experiment.Exists(setting):
+            return self.experiment.GetValue(setting)
+        else:
+            print('ControlEMCCD:Problem getting value')
 
+    def GetReadoutTime(self):
+        '''Return the readout time in second.'''
+        return 1/float(self.GetSettingValue(CameraSettings.AcquisitionReadoutRate))
 
-    def SetSettingValue(self,setting, value):    
-        # Check for existence before setting, return true if it exist
-        if self.experiment.Exists(setting):        
+    def GetFrameTime(self):
+        '''Return the time it take to acquire a frame in second.'''
+        return 1/float(self.GetSettingValue(CameraSettings.AcquisitionFrameRate))
+
+    def GetNumberOfFrame(self):
+        '''Return number of frames for a single acquisition.'''
+        return self.GetSettingValue(ExperimentSettings.AcquisitionFramesToStore)
+
+    def GetExposureTime(self):
+        '''Return exposure time in ms.'''
+        return self.GetSettingValue(CameraSettings.ShutterTimingExposureTime)
+
+    #####################
+    # Setters
+    ####################
+
+    def SetSettingValue(self, setting, value):
+        if self.experiment.Exists(setting):
             self.experiment.SetValue(setting, value)
             return True
         else:
             return False
-        
-    def GetSettingValue(self,setting, value):    
-        # Check for existence before setting, return true if it exist
-        if self.experiment.Exists(setting):        
-            return self.experiment.GetValue(setting)
-        else:
-            print('ControlEMCCD:Problem getting value')
-        
-    def print_setting(self,setting):
+
+    def SetNumberOfFrame(self, NbFrame):
+        self.SetSettingValue(
+            ExperimentSettings.AcquisitionFramesToStore, NbFrame)
+
+    def SetSavefileName(self, Filename):
+        self.SetSettingValue(
+            ExperimentSettings.FileNameGenerationBaseFileName, Filename)
+
+    def print_setting(self, setting):
         # Check for existence before
         # getting gain, adc rate, or adc quality
         if self.experiment.Exists(setting):
@@ -123,16 +154,16 @@ class LightFieldControl:
                 '{0} {1} = {2}', "\tReading ",
                 str(setting),
                 self.experiment.GetValue(setting)))
-    
+
 
 if __name__ == "__main__":
-    emccd=LightFieldControl(ExperimentName='TimeTraceEM')
+    emccd = LightFieldControl(ExperimentName='TimeTraceEM')
     emccd.print_setting(CameraSettings.AcquisitionReadoutRate)
-    #time.sleep(10)
-    if emccd.Status==False:
+    # time.sleep(10)
+    if emccd.Status == False:
         print("The experiment couldn't be setup please close all instance of Lightfield, check connection and retry.")
         sys.exit()
-    if emccd.Status==True:
+    if emccd.Status == True:
         emccd.Acquire()
         emccd.WaitForAcq()
         print('')
