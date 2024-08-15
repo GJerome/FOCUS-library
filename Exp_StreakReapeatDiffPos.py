@@ -19,9 +19,9 @@ os.system('cls')
 
 
 # Streak camera parameter
-Nb_exposure = 100 # number of integration
-Nb_loop = 60 # number of loop in the sequence
-MCP_Gain = 36
+Nb_exposure = 50 # number of integration
+Nb_loop = 240 # number of loop in the sequence
+MCP_Gain = 32
 
 #############################
 # Piezo parameter
@@ -108,8 +108,8 @@ print("Begin acquisition")
 Laser.SetStatusShutterTunable(1)
 for k in IteratorMes:
     print('Measurement number:{}'.format(MesNumber[IteratorMes.index]))
-    os.mkdir(DirectoryPath+'\\Mes'+str(MesNumber[IteratorMes.index])+'x='+np.round(
-        Pos[MesNumber[IteratorMes.index], 0], 2)+'y='+np.round(Pos[MesNumber[IteratorMes.index], 1], 2))
+    os.mkdir(DirectoryPath+'\\Mes'+str(MesNumber[IteratorMes.index])+'x='+str(np.round(
+        Pos[MesNumber[IteratorMes.index], 0], 2))+'y='+str(np.round(Pos[MesNumber[IteratorMes.index], 1], 2)))
     x_axis.MoveTo(Pos[MesNumber[IteratorMes.index], 0])
     y_axis.MoveTo(Pos[MesNumber[IteratorMes.index], 1])
     sc.ShutterOpen()
