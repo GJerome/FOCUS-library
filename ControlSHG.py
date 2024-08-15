@@ -25,7 +25,9 @@ class SHG:
         self.device = serial.Serial(
             port=COMPortSHG, baudrate=38400, parity='N', stopbits=1, timeout=3)
         if CalibrationFile != None:
-            self.Calibration = pd.read_csv(CalibrationFile)
+            self.Calibration = pd.read_csv(CalibrationFile,usecols=[1,2])
+        else:
+            self.Calibration=pd.DataFrame({'Wavelength':[0],'delta':[0]})
 
 #####################
 # Getters
@@ -43,7 +45,7 @@ class SHG:
 
     def SetActuatorPosition(self, delta):
         """Set the the actuator position. The delta parameter is should be between +999 and -999."""
-        if np.abs(delta) > 1000:
+        if np.abs(int(delta)) > 1000:
             print('SHG Warning: Actuator position outside of range, not moving')
         else:
             deltaS = f'{int(delta):+04}'
@@ -59,15 +61,16 @@ class SHG:
             waveS = wave
         self.device.write('NWL{},'.format(waveS).encode())
         status = self.device.readline()
-        if status[3:-1] != b'\x00\x00\x02':
+        if status.find(b'\x00\x00\x02')==-1:
             print('SHG Warning:Problem setting up the wavelength (return:{},status:{})'.format(
                 status, self.GetCommand('GST,')))
             return False
 
         delta = self.Calibration.loc[self.Calibration['Wavelength']
-                                     == wave]['delta']
+                                     == int(0.5*wave)]['delta']
+
         if len(delta.index) > 0:
-            self.SetActuatorPosition(delta)
+            self.SetActuatorPosition(delta.iloc[0])
             print('Optimizing at {} nm'.format(wave))
         return True
 
@@ -92,8 +95,8 @@ class SHG:
 
 if __name__ == "__main__":
     print('Main code')
-    SHGDevice = SHG('COM17')
+    SHGDevice = SHG('COM17','d:\\Data\\24-07-25-CalibSHG6True\\ResultSHGCalibration.csv')
     print(SHGDevice.GetWavelength())
-    print(SHGDevice.SetCommand('NWL0850,'))
-    print(SHGDevice.SetCommand('SMS+037,'))
+    print(SHGDevice.SetWavelength(960))
+    #print(SHGDevice.SetActuatorPosition(47))
     print(SHGDevice.GetWavelength())
