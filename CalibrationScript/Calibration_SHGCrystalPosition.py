@@ -58,9 +58,8 @@ DirectoryPath = FileControl.PrepareDirectory(GeneralPara, InstrumentsPara)
 def OptimizeCompensator(x):
     step = int(np.round(x))
     Laser.SHG.SetActuatorPosition(step)
-    # LockInDevice.AutorangeSource()
     data = LockInDevice.AcquisitionLoop(0.5)
-    return data.loc['R1'].mean()
+    return 1/data.loc['R1'].mean()  # higher R1 means lower value
 
 
 #############################
@@ -68,12 +67,13 @@ def OptimizeCompensator(x):
 #############################
 Result = pd.DataFrame({'Wavelength': WavelengthRange,
                       'delta': np.zeros(np.size(WavelengthRange))})
+Laser.SetStatusShutterTunable(1)
 for i in WavelengthRange:
     Laser.SetWavelengthTunable(i)
     res = minimize_scalar(OptimizeCompensator,
                           bounds=(-200, 200), method='bounded')
     Result.loc[Result['Wavelength'] == i, 'delta'] = int(np.round(res.x))
-
+Laser.SetStatusShutterTunable(0)
 Result.to_csv('./ResultSHGCalibration.csv')
 fig1, ax1 = plt.subplots(1, 1)
 ax1[0].plot(Result.loc[:, 'Wavelength'], Result.loc[:, 'delta'])
