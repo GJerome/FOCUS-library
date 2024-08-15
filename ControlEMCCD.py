@@ -92,6 +92,7 @@ class LightFieldControl:
             self.experiment.Acquire()
     def WaitForAcq(self):
         '''Wait for the experiement to finish running.'''
+        print('test')
         while self.experiment.IsRunning ==True:    
             time.sleep(0.5)
 
@@ -127,11 +128,11 @@ class LightFieldControl:
 if __name__ == "__main__":
     emccd=LightFieldControl(ExperimentName='TimeTraceEM')
     emccd.print_setting(CameraSettings.AcquisitionReadoutRate)
-    time.sleep(10)
+    #time.sleep(10)
     if emccd.Status==False:
         print("The experiment couldn't be setup please close all instance of Lightfield, check connection and retry.")
         sys.exit()
     if emccd.Status==True:
-        #emccd.Acquire()
-        #emccd.WaitForAcq()
+        emccd.Acquire()
+        emccd.WaitForAcq()
         print('')
