@@ -108,7 +108,8 @@ print("Begin acquisition")
 Laser.SetStatusShutterTunable(1)
 for k in IteratorMes:
     print('Measurement number:{}'.format(MesNumber[IteratorMes.index]))
-    os.mkdir(DirectoryPath+'\\Mes'+str(MesNumber[IteratorMes.index]))
+    os.mkdir(DirectoryPath+'\\Mes'+str(MesNumber[IteratorMes.index])+'x='+np.round(
+        Pos[MesNumber[IteratorMes.index], 0], 2)+'y='+np.round(Pos[MesNumber[IteratorMes.index], 1], 2))
     x_axis.MoveTo(Pos[MesNumber[IteratorMes.index], 0])
     y_axis.MoveTo(Pos[MesNumber[IteratorMes.index], 1])
     sc.ShutterOpen()
