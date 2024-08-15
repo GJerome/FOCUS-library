@@ -19,7 +19,7 @@ except:
 #############################
 # Global parameter
 #############################
-WavelengthRange = np.arrange(400, 410, 1)
+WavelengthRange = np.arange(400, 500, 1)
 
 LockInParaFile = 'ParameterLockIn.txt'
 
@@ -59,7 +59,8 @@ def OptimizeCompensator(x):
     step = int(np.round(x))
     Laser.SHG.SetActuatorPosition(step)
     data = LockInDevice.AcquisitionLoop(0.5)
-    return 1/data.loc['R1'].mean()  # higher R1 means lower value
+    Laser.SHG.SetActuatorPosition(-step)
+    return 1/data.loc[:,'R1'].mean()  # higher R1 means lower value
 
 
 #############################
@@ -70,11 +71,12 @@ Result = pd.DataFrame({'Wavelength': WavelengthRange,
 Laser.SetStatusShutterTunable(1)
 for i in WavelengthRange:
     Laser.SetWavelengthTunable(i)
+    Laser.WaitForTuning()
     res = minimize_scalar(OptimizeCompensator,
-                          bounds=(-200, 200), method='bounded')
+                          bounds=(-100, 100), method='bounded')
     Result.loc[Result['Wavelength'] == i, 'delta'] = int(np.round(res.x))
 Laser.SetStatusShutterTunable(0)
-Result.to_csv('./ResultSHGCalibration.csv')
+Result.to_csv(DirectoryPath+'/ResultSHGCalibration.csv')
 fig1, ax1 = plt.subplots(1, 1)
-ax1[0].plot(Result.loc[:, 'Wavelength'], Result.loc[:, 'delta'])
+ax1.plot(Result.loc[:, 'Wavelength'], Result.loc[:, 'delta'])
 plt.show()
