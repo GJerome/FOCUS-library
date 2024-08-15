@@ -88,7 +88,7 @@ class LaserControl:
             a=self.SHG.SetWavelength(int(2*wave))
             b=self.SHG.GetWavelength()
             if a!= True:
-                sys.exit("ControlLaser error: SHG couldn't reach desired wavelength(lamda={}) ".format(b))
+                print("ControlLaser error: SHG couldn't reach desired wavelength(lamda={}) ".format(b))
         elif (wave>=660) and (wave<1301):
             self.SerialPort.write("WAVELENGTH={}\r\n".format(int(wave)).encode())
             status = self.SerialPort.readline().decode().rstrip()

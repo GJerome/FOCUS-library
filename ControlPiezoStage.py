@@ -87,6 +87,7 @@ if __name__ == "__main__":
     y_axis=PiezoAxisControl(piezo,'y')
     z_axis=PiezoAxisControl(piezo,  'z')
     # Sample plane is xz
-    y_axis.MoveTo(0)
-    z_axis.MoveTo(30)
-    print(x_axis.GetPosition())
+    y_axis.MoveTo(10)
+    z_axis.MoveTo(10)
+    print(y_axis.GetPosition())
+    print(z_axis.GetPosition())
