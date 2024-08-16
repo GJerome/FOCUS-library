@@ -18,11 +18,11 @@ os.system('cls')
 #############################
 
 
-Nb_Points = 10  # Number of position for the piezo
-Nb_Cycle = 10  # Number of cycle during experiment
+Nb_Points = 4  # Number of position for the piezo
+Nb_Cycle = 2  # Number of cycle during experiment
 DistancePts = 10
 
-StabilityTime = 100
+StabilityTime = 10
 
 #############################
 # Piezo parameter
@@ -38,9 +38,11 @@ y = np.linspace(start_y, end_y, int(np.ceil(np.sqrt(Nb_Points))))
 
 X, Y = np.meshgrid(x, y)
 Pos = np.stack([X.ravel(), Y.ravel()], axis=-1)
-print('Number of Points:{}\nDistance between points:\n\t x ={} \n\t y ={}'.format(len(Pos),
+try:
+    print('Number of Points:{}\nDistance between points:\n\t x ={} \n\t y ={}'.format(len(Pos),
                                                                                   x[1]-x[0], y[1]-y[0]))
-
+except IndexError:
+    print('Number of Points:{}\n'.format(len(Pos)))
 
 GeneralPara = {'Experiment name': ' EMCCDRepeatDiffPos', 'Nb points': Nb_Points,
                'Distance Between Points ': DistancePts,
@@ -121,7 +123,7 @@ print('Initialised EMCCD')
 # Initialisation of the shutter
 #############################
 
-FM = shutter.FlipMount("37007725")
+FM = shutter.FlipMount("37007726")
 print('Initialised Flip mount')
 
 #############################
@@ -141,7 +143,7 @@ IteratorMes = np.nditer(MesNumber, flags=['f_index'])
 CycNumber = np.linspace(1, Nb_Cycle, Nb_Cycle, endpoint=False)
 IteratorCyc = np.nditer(CycNumber, flags=['f_index'])
 
-Laser.SetStatusShutterTunable(1)
+#Laser.SetStatusShutterTunable(1)
 
 for k in IteratorMes:
     # Generation of the folder and measurement prep
@@ -191,4 +193,4 @@ for k in IteratorMes:
     IteratorCyc.reset()
 
 
-Laser.SetStatusShutterTunable(0)
+#Laser.SetStatusShutterTunable(0)
