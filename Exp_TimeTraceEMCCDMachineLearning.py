@@ -23,6 +23,7 @@ Nb_Cycle = 10  # Number of cycle during experiment
 DistancePts = 10
 
 StabilityTime = 30
+OnlyOneConfig=False
 
 #############################
 # Piezo parameter
@@ -76,6 +77,17 @@ ProbaT = p1
 # RNG declaration
 ###################
 rng = np.random.default_rng()
+
+if OnlyOneConfig==True:
+    # Intensity/Power Cycle generation
+    T_final = rng.choice(t, Nb_Cycle, p=ProbaT)
+    # First we generate an array of cycle which only contains index for the moment
+    P_Final = rng.choice(np.linspace(0, len(P), len(
+        P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
+
+    while P_Final[0] == 0:  # We assume that the first element of P is the zero power element
+        P_Final = rng.choice(np.linspace(0, len(P), len(P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
+    
 
 #############################
 # Initialisation of laser
@@ -165,8 +177,9 @@ for k in IteratorMes:
 
     while temp[0] == 0:  # We assume that the first element of P is the zero power element
         temp = rng.choice(np.linspace(0, len(P), len(P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
-
-
+    if OnlyOneConfig==True:
+        temp= P_Final
+        t_cyc= T_final
     p_cyc_calib = np.array([P_calib[i] for i in temp])
     p_cyc = np.array([P[i] for i in temp])
 
