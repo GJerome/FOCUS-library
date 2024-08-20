@@ -24,7 +24,7 @@ class LaserControl:
         self.Status=self.GetStatus()
         self.Wavelength=self.GetWavelength()
         # Set the SHG in accordance to the laser tunable output
-        self.SHG=ControlSHG.SHG(ComportSHG)
+        self.SHG=ControlSHG.SHG(ComportSHG,'d:\\Data\\24-07-25-CalibSHG6True\\ResultSHGCalibration.csv')
         self.SHG.SetWavelength(self.Wavelength)
 
         self.parameterDict={'Tunable output wavelength':self.Wavelength,'SHG Wavelength': self.Wavelength}

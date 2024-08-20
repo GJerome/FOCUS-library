@@ -1,10 +1,6 @@
 # This file allows the control of the EMCCD using the lightfield
 
-from PrincetonInstruments.LightField.AddIns import SensorTemperatureStatus
-from PrincetonInstruments.LightField.AddIns import CameraSettings
-from PrincetonInstruments.LightField.AddIns import DeviceType
-from PrincetonInstruments.LightField.AddIns import ExperimentSettings
-from PrincetonInstruments.LightField.Automation import Automation
+
 import clr
 # clr.AddReference('System')
 import sys
@@ -29,7 +25,11 @@ clr.AddReference('PrincetonInstruments.LightFieldAddInSupportServices')
 
 
 # PI imports
-
+from PrincetonInstruments.LightField.AddIns import SensorTemperatureStatus
+from PrincetonInstruments.LightField.AddIns import CameraSettings
+from PrincetonInstruments.LightField.AddIns import DeviceType
+from PrincetonInstruments.LightField.AddIns import ExperimentSettings
+from PrincetonInstruments.LightField.Automation import Automation
 
 def device_found(experiment):
     # Find connected device
@@ -44,7 +44,7 @@ def device_found(experiment):
 
 class LightFieldControl:
 
-    sensor_temperature = float(-55)
+    sensor_temperature = float(-45)
 
     def __init__(self, ExperimentName):
         assert not isinstance(
@@ -82,6 +82,7 @@ class LightFieldControl:
         else:
 
             self.Status = False
+
         self.parameterDict = {'Frame time': self.GetFrameTime(
         ), 'Integration Time': self.GetExposureTime()}
 
@@ -98,7 +99,6 @@ class LightFieldControl:
 
     def WaitForAcq(self):
         '''Wait for the experiement to finish running.'''
-        print('test')
         while self.experiment.IsRunning == True:
             time.sleep(0.5)
 
@@ -126,6 +126,9 @@ class LightFieldControl:
     def GetExposureTime(self):
         '''Return exposure time in ms.'''
         return self.GetSettingValue(CameraSettings.ShutterTimingExposureTime)
+    
+    def GetSaveDirectory(self):
+        return self.GetSettingValue(ExperimentSettings.FileNameGenerationDirectory)
 
     #####################
     # Setters
@@ -141,8 +144,14 @@ class LightFieldControl:
     def SetNumberOfFrame(self, NbFrame):
         self.SetSettingValue(
             ExperimentSettings.AcquisitionFramesToStore, NbFrame)
-
-    def SetSavefileName(self, Filename):
+    
+    
+    def SetSaveDirectory(self, Directory):
+        self.SetSettingValue(
+            ExperimentSettings.FileNameGenerationDirectory, Directory)
+    
+    
+    def SetSaveFileName(self, Filename):
         self.SetSettingValue(
             ExperimentSettings.FileNameGenerationBaseFileName, Filename)
 
@@ -159,11 +168,13 @@ class LightFieldControl:
 if __name__ == "__main__":
     emccd = LightFieldControl(ExperimentName='TimeTraceEM')
     emccd.print_setting(CameraSettings.AcquisitionReadoutRate)
+    emccd.print_setting(ExperimentSettings.FileNameGenerationDirectory)
     # time.sleep(10)
+    '''
     if emccd.Status == False:
         print("The experiment couldn't be setup please close all instance of Lightfield, check connection and retry.")
         sys.exit()
     if emccd.Status == True:
         emccd.Acquire()
         emccd.WaitForAcq()
-        print('')
+        print('')'''

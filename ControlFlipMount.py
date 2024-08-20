@@ -10,6 +10,7 @@ class FlipMount:
     def __init__(self, SN):
         # Class allowing for the control of the MFF101/M Flip mount. This is just a wrapper form pylablib inmplementation
         self.Device = Thorlabs.kinesis.MFF(SN)
+        self.TransTime=0.3
 
     def ChangeState(self, state):
         '''Go to a specific state. If you are using it as a shutter please ensure that
@@ -17,8 +18,8 @@ class FlipMount:
         is blocking while the flip mount is moving '''
         if self.Device.get_state() != state:
             self.Device.move_to_state(int(state))
-        while self.GetFlipState() == None:
-            time.sleep(0.1)
+        
+            time.sleep(self.TransTime)
 
     def GetFlipState(self):
         '''Get flipper state. If you are using it as a shutter please ensure that
@@ -26,12 +27,18 @@ class FlipMount:
         return self.Device.get_state()
 
     def FlipState(self):
+        temp=self.GetFlipState()
         if self.Device.get_state() == 0:
-            self.Device.move_to_state(1)
+            self.Device.move_to_state(1)     
         else:
             self.Device.move_to_state(0)
 
+        time.sleep(self.TransTime)
+
 
 if __name__ == "__main__":
-    a = FlipMount("37007725")
-    a.ChangeState(0)
+    a = FlipMount("37007726")
+    print(a.GetFlipState())
+    t0=time.time()
+    a.FlipState()
+    print(time.time()-t0)
