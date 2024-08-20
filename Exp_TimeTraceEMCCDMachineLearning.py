@@ -18,11 +18,11 @@ os.system('cls')
 #############################
 
 
-Nb_Points = 4  # Number of position for the piezo
-Nb_Cycle = 2  # Number of cycle during experiment
+Nb_Points = 100  # Number of position for the piezo
+Nb_Cycle = 10  # Number of cycle during experiment
 DistancePts = 10
 
-StabilityTime = 10
+StabilityTime = 30
 
 #############################
 # Piezo parameter
@@ -56,8 +56,8 @@ InstrumentsPara = {}
 ###################
 # Proba density function Power
 ###################
-P = (0, 1, 10, 100, 1000)  # power in uW
-P_calib = (500, 500, 500, 500, 500)  # Power from the pp to reach values of P
+P = (0, 4.4, 10, 100, 800)  # power in uW
+P_calib = (500, 500, 900, 2500, 9200)  # Power from the pp to reach values of P
 
 p0 = [0.2, 0.2, 0.2, 0.2, 0.2]
 p1 = [0.3, 0.175, 0.175, 0.175, 0.175]
@@ -116,7 +116,7 @@ camera = EMCCD.LightFieldControl('TimeTraceEM')
 FrameTime = camera.GetFrameTime()
 ExposureTime = camera.GetExposureTime()
 NumberOfFrame = camera.GetNumberOfFrame()
-
+InstrumentsPara['PI EMCCD'] = camera.parameterDict
 print('Initialised EMCCD')
 
 #############################
@@ -137,60 +137,79 @@ DirectoryPath = FileControl.PrepareDirectory(GeneralPara, InstrumentsPara)
 # TimeTrace loop
 #############################
 print('')
-MesNumber = np.linspace(1, Nb_Points, Nb_Points, endpoint=False)
+MesNumber = np.linspace(0, Nb_Points, Nb_Points, endpoint=False)
 IteratorMes = np.nditer(MesNumber, flags=['f_index'])
 
-CycNumber = np.linspace(1, Nb_Cycle, Nb_Cycle, endpoint=False)
+CycNumber = np.linspace(0, Nb_Cycle, Nb_Cycle, endpoint=False)
 IteratorCyc = np.nditer(CycNumber, flags=['f_index'])
 
-#Laser.SetStatusShutterTunable(1)
-
+Laser.SetStatusShutterTunable(1)
+FM.ChangeState(0)
 for k in IteratorMes:
     # Generation of the folder and measurement prep
     print('Measurement number:{}'.format(MesNumber[IteratorMes.index]))
-    TempDirPath = DirectoryPath+'\\Mes'+str(MesNumber[IteratorMes.index])+'x='+np.round(
-        Pos[MesNumber[IteratorMes.index], 0], 2)+'y='+np.round(Pos[MesNumber[IteratorMes.index], 1], 2)
+    TempDirPath = DirectoryPath+'/Mes'+str(MesNumber[IteratorMes.index])+'x='+str(np.round(
+        Pos[IteratorMes.index, 0], 2))+'y='+str(np.round(Pos[IteratorMes.index, 1], 2))
     os.mkdir(TempDirPath)
-    x_axis.MoveTo(Pos[MesNumber[IteratorMes.index], 0])
-    y_axis.MoveTo(Pos[MesNumber[IteratorMes.index], 1])
+
+    camera.SetSaveDirectory(TempDirPath.replace('/',"\\"))
+    
+    x_axis.MoveTo(Pos[IteratorMes.index, 0])
+    y_axis.MoveTo(Pos[IteratorMes.index, 1])
 
     # Intensity/Power Cycle generation
     t_cyc = rng.choice(t, Nb_Cycle, p=ProbaT)
     # First we generate an array of cycle which only contains index for the moment
     temp = rng.choice(np.linspace(0, len(P), len(
         P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
-    if temp[0] == 0:  # We assume that the first element of P is the zero power element
-        temp[0] = rng.choice(P[1:], 1, p=ProbaP[1:]/np.sum(ProbaP[1:]))
+
+    while temp[0] == 0:  # We assume that the first element of P is the zero power element
+        temp = rng.choice(np.linspace(0, len(P), len(P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
+
 
     p_cyc_calib = np.array([P_calib[i] for i in temp])
     p_cyc = np.array([P[i] for i in temp])
-    # Save all the cycle in the folder
-    temp = pd.DataFrame(
-        {'Exposure Time': t_cyc, 'Power send': p_cyc, 'Power Pulse-picker': p_cyc_calib})
-    temp.to_csv(TempDirPath+'/Cycle.csv')
+
+
     T_tot = np.sum(t_cyc)
 
     # Camera setting adjustement
     NbFrameCycle = np.ceil((T_tot+StabilityTime)/FrameTime)
     camera.SetNumberOfFrame(NbFrameCycle)
+    print('Time cycle:{}'.format(t_cyc))
+    print('Power cycle:{}'.format(p_cyc))
+    print('Real Power cycle:{}'.format(p_cyc_calib))
+    print('Total time={}'.format(T_tot+StabilityTime))
+
+    #Create timing parameter
+    t_sync=np.zeros(len(t_cyc))
     FM.ChangeState(0)
     camera.Acquire()  # Launch acquisition
+    t0=time.time()
     # Power iteration
     for j in IteratorCyc:
+        print('Cycle {}: P={},t={}'.format(IteratorCyc.index,p_cyc[IteratorCyc.index],t_cyc[IteratorCyc.index]))
         if p_cyc[IteratorCyc.index] == 0:
             FM.ChangeState(0)
-        elif p_cyc[IteratorCyc.index] != 0 and FM.GetFlipState() == 0:
+        elif p_cyc[IteratorCyc.index] != 0:
             FM.ChangeState(1)
             pp.SetPower(p_cyc_calib[IteratorCyc.index])
-        elif p_cyc[IteratorCyc.index] != 0 and FM.GetFlipState() == 1:
-            pp.SetPower(p_cyc_calib[IteratorCyc.index])
+        t_sync[IteratorCyc.index]=time.time()-t0
         time.sleep(t_cyc[IteratorCyc.index])
-    # once it finished we set the power to the minimum and contniue measurement
+    IteratorCyc.reset()
+    # once it finished we set the power to the minimum and continue measurement
+    print('Stability Time')
     FM.ChangeState(1)
     pp.SetPower(np.min(p_cyc_calib))
     camera.WaitForAcq()
     FM.ChangeState(0)
-    IteratorCyc.reset()
+
+     # Save all the cycle in the folder
+    temp = pd.DataFrame(
+        {'Exposure Time': t_cyc, 'Power send': p_cyc, 'Power Pulse-picker': p_cyc_calib,'Sync':t_sync})
+    temp.to_csv(TempDirPath+'/Cycle.csv')
+    
+    
 
 
-#Laser.SetStatusShutterTunable(0)
+Laser.SetStatusShutterTunable(0)
