@@ -1,116 +1,180 @@
-import ControlLockInAmplifier as lock
+import ControlFlipMount as shutter
 import ControlLaser as las
 import ControlPulsePicker as picker
-import FileControl 
-import ControlConex as Rtransla
+import FileControl
+import ControlPiezoStage as Transla
 
+import matplotlib.pyplot as plt
+import matplotlib as mat
 import numpy as np
+import pandas as pd
 import time as time
+
+import random
 import os
+import sys
 
 os.system('cls')
+
 #############################
 # Global parameter
 #############################
+Nb_Points_subgrid=16
 
-Dwell_Time=60 # time of experiment in second
-# We create a test zone define by the  PositionCube variable, on the x_axis we do a frequency sweep and on the y axis a power sweep
-PositionCube=[10 ,0,0.1,0.1]# [x_start y_start x_length y_length]
-Freq=[8E3,800E6] # [starting frequency, end frequency] the actual unit send is the cast int of 80E6/Freq which is the division ratio 
-Nb_pts_freq=5
-PowerSweep=[500,4100] #[Starting power, end power] in mw
-Nb_pts_power=5
+#List of Power
+P_eff = (15, 200)  # power in uW
+P_calib = ( 500, 16.2)  # Power from the pp to reach values of P
+
+#List of time exposure
+t_exp = (10, 1000)  
+
+P, T = np.meshgrid(P_calib, t_exp)
+PT = np.stack([P.ravel(), T.ravel()], axis=-1)
 
 
-FileNameData='DataDoseExperiement_'
-
-LockInParaFile='ParameterLockIn.txt'
-
-GeneralPara={'Experiment name':' Dose experiment','Dwelling time':Dwell_Time,
-             'Frequency sweep':Freq,'Number points frequency sweep':Nb_pts_freq,
-             'Power sweep':PowerSweep,'Number points power sweep':Nb_pts_power,
-             'Note':'The SHG unit from Coherent was used'}
-
-InstrumentsPara={}
 
 #############################
-# Initialisation of lock-in amplifier
+# Piezo parameter
 #############################
 
-LockInDevice=lock.LockInAmplifier(LockInParaFile)
+#Definition of small grid
 
-InstrumentsPara['Lock-in-amplifier']=LockInDevice.parameterDict
+start_x = 0
+end_x = 13.6
+x = np.linspace(start_x, end_x, int(np.floor(np.sqrt(Nb_Points_subgrid))))
+
+start_y = 0
+end_y = 13.6
+y = np.linspace(start_y, end_y, int(np.ceil(np.sqrt(Nb_Points_subgrid))))
+
+X, Y = np.meshgrid(x, y)
+Pos = np.stack([X.ravel(), Y.ravel()], axis=-1)
+index=random.sample(range(0, 16), 16)
+SmallGrid=Pos[index,:]
+
+#Definition of big grid
+
+
+Nb_Points_grid_Power=len(P_eff)
+start_x = 0
+end_x = 66.4
+x = np.linspace(start_x, end_x, Nb_Points_grid_Power)
+
+Nb_Points_grid_time=len(t_exp)
+start_y = 0
+end_y = 66.4
+y = np.linspace(start_y, end_y, Nb_Points_grid_time)
+
+X, Y = np.meshgrid(x, y)
+Pos = np.stack([X.ravel(), Y.ravel()], axis=-1)
+BigGrid=Pos
+
+GeneralPos=np.zeros([Nb_Points_subgrid*Nb_Points_grid_Power*Nb_Points_grid_time,2])
+
+for j in range(BigGrid.shape[0]):
+    GeneralPos[j*Nb_Points_subgrid:(j+1)*Nb_Points_subgrid,:]=SmallGrid+BigGrid[j,:]
+
+
+print('Number of Points:{}\n'.format(GeneralPos.shape[0]))
+
+
+GeneralPara = {'Experiment name': ' DosingExperiment', 'Nb points': Nb_Points_subgrid*Nb_Points_grid_Power*Nb_Points_grid_time,
+               'Point List': GeneralPos,
+               'Power list':P_eff,
+               'Power Calib':P_calib,
+               'Exposure time':t_exp,
+               'Note': 'The SHG unit from Coherent was used'}
+
+InstrumentsPara = {}
 
 #############################
 # Initialisation of laser
 #############################
 
-Laser= las.LaserControl('COM8',2)
+Laser = las.LaserControl('COM8', 'COM17', 0.5)
 
-InstrumentsPara['Laser']=Laser.parameterDict
-
+InstrumentsPara['Laser'] = Laser.parameterDict
+print('Initialised Laser')
 #############################
 # Initialisation of pulse picker
 #############################
 
-pp=picker.PulsePicker("USB0::0x0403::0xC434::S09748-10A7::INSTR")
-InstrumentsPara['Pulse picker']=pp.parameterDict
+pp = picker.PulsePicker("USB0::0x0403::0xC434::S09748-10A7::INSTR")
+InstrumentsPara['Pulse picker'] = pp.parameterDict
 print('Initialised pulse picker')
 
 #############################
-# Initialisation of the Conex Controller
+# Initialisation of the motorised controller
+#############################
+if 'ControlConex' in sys.modules:
+    x_axis = Transla.ConexController('COM12')
+    y_axis = Transla.ConexController('COM13')
+    print('Initialised rough translation stage')
+
+elif 'ControlPiezoStage' in sys.modules:
+    piezo = Transla.PiezoControl('COM15')
+    x_axis = Transla.PiezoAxisControl(piezo, 'x')
+    y_axis = Transla.PiezoAxisControl(piezo, 'y')
+    print('Initialised piezo translation stage')
+
+
+
+#############################
+# Initialisation of the shutter
 #############################
 
-
-x_axis=Rtransla.ConexController('COM12')
-y_axis=Rtransla.ConexController('COM13')
-print('Initialised rough translation stage')
+FM = shutter.FlipMount("37007726")
+print('Initialised Flip mount')
 
 #############################
 # Preparation of the directory
 #############################
 print('Directory staging, please check other window')
-DirectoryPath=FileControl.PrepareDirectory(GeneralPara,InstrumentsPara)
+DirectoryPath = FileControl.PrepareDirectory(GeneralPara, InstrumentsPara)
+# Saving the list of position
+mat.rcParams.update({'font.size': 9, 'font.family': 'sans-serif', 'font.sans-serif': ['Arial'],
+                         'xtick.labelsize': 9, 'ytick.labelsize': 9,
+                           'figure.dpi': 300, 'savefig.dpi': 300,
+                             'figure.figsize': (10/2.5,10/2.5)})
 
-
+fig1,ax=plt.subplots(1,1)
+ax.scatter(GeneralPos[:,0],GeneralPos[:,1])
+ax.set_xlabel('x[$\\mu$m]')
+ax.set_ylabel('y[$\\mu$m]')
+plt.tight_layout()
+plt.savefig(DirectoryPath+'/Points.png')
 #############################
-# Printing loop
+# TimeTrace loop
 #############################
 print('')
+MesNumber = np.linspace(0, Nb_Points_grid_Power*Nb_Points_grid_time, Nb_Points_grid_Power*Nb_Points_grid_time, endpoint=False,dtype=int)
+IteratorMes= np.nditer(MesNumber, flags=['f_index'])
 
-x_pos=np.linspace(PositionCube[0],PositionCube[0]+PositionCube[2],Nb_pts_freq)
-FreqSweep=np.linspace(int(80E6/Freq[0]),int(80E6/Freq[1]),Nb_pts_freq,dtype=np.dtype(int))
-IteratorFreq=np.nditer(FreqSweep, flags=['f_index'])
+MesSubgrid = np.linspace(0, Nb_Points_subgrid, Nb_Points_subgrid, endpoint=False,dtype=int)
+IteratorMesSubgrid= np.nditer(MesSubgrid, flags=['f_index'])
 
-y_pos=np.linspace(PositionCube[1],PositionCube[1]+PositionCube[3],Nb_pts_power)
-PowerSweep=np.linspace(PowerSweep[0],PowerSweep[1],Nb_pts_power,dtype=np.dtype(int))
-IteratorPower=np.nditer(PowerSweep, flags=['f_index'])
+Laser.SetStatusShutterTunable(1)
+FM.ChangeState(0)
 
-print("Begin acquisition")
+for k in IteratorMes:
+    print('Exposure Time: {}s'.format(PT[k,1]))
+    print('Power :{}'.format(PT[k,0]))
+    pp.SetPower(PT[k,0])
+    print('Progress:{}%'.format(np.round(100*k/(PT.shape[0]),2)))
+    Pos=GeneralPos[k*Nb_Points_subgrid:(k+1)*Nb_Points_subgrid,:]
 
-for k in  IteratorFreq:
-    x_axis.MoveTo(x_pos[IteratorFreq.index])    
-    pp.SetDivRatio(k) 
-
-    for j in IteratorPower:       
-        y_axis.MoveTo(y_pos[IteratorPower.index])
-        pp.SetPower(j)
-        print('Laser on the sample with a div ratio of {} and a power of {}'.format(pp.GetDivRatio(),pp.GetPower())) 
-        Laser.StatusShutterTunable(1)
-        LockInDevice.AutorangeSource()
-        data_Source1,t1,data_Source2,t2=LockInDevice.AcquisitionLoop(Dwell_Time)
-
-        #############################
-        # Interpolation to the same timebase
-        #############################
-
-        data_Source2_interp=np.interp(t1,t2,data_Source2)
-        Reflectivity=np.divide(data_Source2_interp,data_Source1)
-        t1_scaled=(t1-t1[1])/LockInDevice.Timebase
-
-        export_data=(t1_scaled,Reflectivity,data_Source2_interp,data_Source1)
-        FileControl.ExportFileLockIn(DirectoryPath,FileNameData+'DivRatio{}Power{}'.format(str(k),str(np.round(j,2))),export_data)
-      
-        Laser.StatusShutterTunable(0)
-    IteratorPower.reset()
     
+    for j in IteratorMesSubgrid:
+        if j==0:
+            x_axis.MoveTo(Pos[j,0])
+            y_axis.MoveTo(Pos[j,1])
+            FM.ChangeState(1)
+        else:
+            x_axis.MoveTo(Pos[j,0])
+            y_axis.MoveTo(Pos[j,1])
+        time.sleep(PT[k,1])
+    IteratorMesSubgrid.reset()
+    FM.ChangeState(0)
+    print('')
+
+Laser.SetStatusShutterTunable(0)
