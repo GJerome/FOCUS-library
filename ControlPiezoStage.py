@@ -1,4 +1,5 @@
 import serial
+import time 
 import sys
 import numpy as np
 
@@ -12,7 +13,7 @@ class PiezoControl:
             self.SerialPort = serial.Serial(ComPortLaser,baudrate=19200,bytesize=serial.EIGHTBITS,stopbits=serial.STOPBITS_ONE,
                                             timeout=1,parity=serial.PARITY_NONE,xonxoff=True)
         except :
-            sys.exit("ControlLaser error: Can't connect to the laser. You could try to close Discovery NX.")
+            sys.exit("ControlPiezo error: Can't connect to the piezo.")
         # Put all channel in remote
         self.SetCommand('setk,0,1')
         self.SetCommand('setk,1,1')
@@ -59,18 +60,29 @@ class PiezoControl:
 
 class PiezoAxisControl:
     '''This calls is to control individual element of the piezo. The accepted value for the axis variable are  x,y,z. '''
-    def __init__(self,piezo,axis):
+    def __init__(self,piezo,axis,Timeout):
 
         self.piezo=piezo
         self.axis=axis
+        self.Timeout=Timeout
 
     def MoveTo(self,pos):
-        if self.axis=='x':
-            self.piezo.SetX(pos)
-        elif self.axis=='y':
-            self.piezo.SetY(pos)
-        elif self.axis=='z':
-            self.piezo.SetZ(pos)
+        pos=np.round(pos,3)
+        t0=time.time()
+        t1=time.time()-t0
+        while ((self.GetPosition()>pos+0.01) or (self.GetPosition()<pos-0.01)) and (t1< self.Timeout):
+            if self.axis=='x':
+                self.piezo.SetX(pos)
+            elif self.axis=='y':
+                self.piezo.SetY(pos)
+            elif self.axis=='z':
+                self.piezo.SetZ(pos)
+            time.sleep(0.01)
+            t1=time.time()-t0
+            if t1>self.Timeout:
+                print('Warning: ControlPiezo, could not reach position \n\t Pos:{}\n\t Wanted Pos{} '.format(np.round(self.GetPosition(),3)),pos)
+
+
 
     def GetPosition(self):
         if self.axis=='x':
@@ -87,7 +99,10 @@ if __name__ == "__main__":
     y_axis=PiezoAxisControl(piezo,'y')
     z_axis=PiezoAxisControl(piezo,  'z')
     # Sample plane is xz
-    y_axis.MoveTo(10)
-    z_axis.MoveTo(10)
+    t0=time.time()
+    y_axis.MoveTo(0)
+    t1=time.time()
+    print(t1-t0)
+    z_axis.MoveTo(0)
     print(y_axis.GetPosition())
     print(z_axis.GetPosition())
