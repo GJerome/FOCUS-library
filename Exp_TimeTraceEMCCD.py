@@ -1,8 +1,8 @@
-import ControlLockInAmplifier as lock
 import ControlLaser as las
 import ControlPulsePicker as picker
 import ControlEMCCD as EMCCD
 import FileControl 
+import ControlFlipMount as shutter
 #import ControlConex as Rtransla
 import ControlPiezoStage as Ftransla
 
@@ -10,25 +10,26 @@ import numpy as np
 import time as time
 import os
 import sys
+import pandas as pd
 
 os.system('cls')
 #############################
 # Global parameter
 #############################
+TimeTimeTrace=10*60
+#Position Stage
 
-# Carefull now using piezo 
-Nb_points=5
+x = (6,12,18)
 
-DistancePts=10
+y = (18)
 
-# Start piezo stage
-startx=0
-starty=0
+X, Y = np.meshgrid(x, y)
+Pos = np.stack([X.ravel(), Y.ravel()], axis=-1)
 
-
+print('Pos: {}'.format(Pos))
+Nb_points=Pos.shape[0]
 
 GeneralPara={'Experiment name':' EMCCDRepeatDiffPos','Nb points':Nb_points,
-             'Distance Between Points ':DistancePts,
              'Note':'The SHG unit from Coherent was used'}
 
 InstrumentsPara={}
@@ -61,43 +62,53 @@ if 'ControlConex' in sys.modules:
 
 elif 'ControlPiezoStage' in sys.modules:
     piezo= Ftransla.PiezoControl('COM15')
-    x_axis=Ftransla.PiezoAxisControl(piezo,'x')
-    y_axis=Ftransla.PiezoAxisControl(piezo,'y')
+    x_axis=Ftransla.PiezoAxisControl(piezo,'x',3)
+    y_axis=Ftransla.PiezoAxisControl(piezo,'y',3)
     print('Initialised piezo translation stage')
 
-x_axis.MoveTo(startx)
-y_axis.MoveTo(starty)
+x_axis.MoveTo(0)
+y_axis.MoveTo(0)
 #############################
 # Initialisation of the EMCCD
 #############################
 
 camera=EMCCD.LightFieldControl('TimeTraceEM')
+FrameTime = camera.GetFrameTime()
+ExposureTime = camera.GetExposureTime()
+NumberOfFrame = camera.GetNumberOfFrame()
+InstrumentsPara['PI EMCCD'] = camera.parameterDict
+NbFrameCycle = np.ceil((TimeTimeTrace)/FrameTime)
+camera.SetNumberOfFrame(NbFrameCycle)
 print('Initialised EMCCD')
 
 
+#############################
+# Initialisation of the shutter
+#############################
 
+FM = shutter.FlipMount("37007726")
+print('Initialised Flip mount')
 
 #############################
-# Printing loop
+# Preparation of the directory
 #############################
-print('')
+print('Directory staging, please check other window')
+DirectoryPath = FileControl.PrepareDirectory(GeneralPara, InstrumentsPara)
+pd.DataFrame(Pos).to_csv(DirectoryPath+'/Position.csv')
+camera.SetSaveDirectory(DirectoryPath.replace('/',"\\"))
 
-MesNumber=np.linspace(1,Nb_points,Nb_points)
-IteratorMes=np.nditer(MesNumber, flags=['f_index'])
+MesNumber = np.linspace(0, Pos.shape[0], Pos.shape[0], endpoint=False,dtype=int)
+IteratorMes= np.nditer(MesNumber, flags=['f_index'])
 
 print("Begin acquisition")
-Laser.SetStatusShutterTunable(0)
+Laser.SetStatusShutterTunable(1)
 for k in  IteratorMes:
     print('Measurement number:{}'.format(MesNumber[IteratorMes.index]))
-    #os.mkdir(DirectoryPath+'\\Mes'+str(MesNumber[IteratorMes.index])) 
-
-    x_axis.MoveTo(startx+(MesNumber[IteratorMes.index]+1)*DistancePts)
+    x_axis.MoveTo(Pos[k,0])
+    y_axis.MoveTo(Pos[k,1])
+    FM.ChangeState(1)
     camera.Acquire()
-    time.sleep(1)# This is just to wait for the exp to begin
-    Laser.SetStatusShutterTunable(1)
     camera.WaitForAcq()    
-    Laser.SetStatusShutterTunable(0)
-    #time.sleep(10)
-
-time.sleep(5)
+    FM.ChangeState(0)
+Laser.SetStatusShutterTunable(0)
 print('Experiment finished')
