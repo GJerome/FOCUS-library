@@ -86,7 +86,7 @@ class LockInAmplifier:
         self.api_session.sync()
 
         while True:
-            temp=self.api_session.poll(1, 500,0x0001,True)
+            temp=self.api_session.poll(time_exp, 500,0x0001,True)
             try:
 
             #############################
@@ -103,7 +103,8 @@ class LockInAmplifier:
                 t1=np.append(t1,temp[self.S1_name+"sample"]['timestamp'])
                 t2=np.append(t2,temp[self.S2_name+"sample"]['timestamp'])
 
-            except:
+            except Exception as e: 
+                print('wtf: {}'.format(e))
                 print("It seems that the field didn't exist, loop didn't finish \n The dictonary had the following data keys:\n {} ".format(temp.keys()))
                 break
 
@@ -115,8 +116,12 @@ class LockInAmplifier:
             time_run=time.time()-t0
             if time_run>time_exp:
                 break
-        t1=(t1-t1[1])/self.Timebase
-        t2=(t2-t2[1])/self.Timebase
+        try:
+            t1=(t1-t1[1])/self.Timebase
+            t2=(t2-t2[1])/self.Timebase
+        except IndexError:
+            t1=(t1)/self.Timebase
+            t2=(t2)/self.Timebase
         return pd.DataFrame({'t':t1[1:],'R1':data_Source1R[1:],'Phase1':data_Source1T[1:],
                              'R2':np.interp(t1[1:],t2[1:],data_Source2R[1:]),'Phase2':np.interp(t1[1:],t2[1:],data_Source2T[1:])})
     
@@ -226,8 +231,8 @@ class LockInAmplifier:
             self.SetPathValue('/dev2940/demods/7/adcselect', 3)
 
 if __name__ == "__main__":
-    LockInParaFile='ParameterLockInTA.txt'
+    LockInParaFile='ParameterLockIn.txt'
 
     lock=LockInAmplifier(LockInParaFile)
-    data=lock.AcquisitionLoop(0.5)
+    data=lock.AcquisitionLoop(0.1)
     print(1/data.loc[:,'R1'].mean())
