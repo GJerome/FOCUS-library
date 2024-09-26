@@ -3,10 +3,9 @@ import ControlLaser as las
 import ControlPulsePicker as picker
 import FileControl
 import ControlPiezoStage as Transla
-import ControlEMCCD as EMCCD
+import ControlLockInAmplifier as lock
 
-import matplotlib.pyplot as plt
-import matplotlib as mat
+
 import numpy as np
 import pandas as pd
 import time as time
@@ -20,22 +19,22 @@ os.system('cls')
 #############################
 # Global parameter
 #############################
-Nb_Points_subgrid=4000
-
+Nb_Points_subgrid=1200
+time_exp=0.1 # time of experiment in second
 
 #############################
 # Piezo parameter
 #############################
 
-#Definition of small grid
+#Definition of small line
 
-start_x =20
+start_x = 1
 end_x = 80
-x = np.linspace(start_x, end_x, int(np.floor(np.sqrt(Nb_Points_subgrid))))
+y = np.linspace(start_x, end_x,Nb_Points_subgrid )
 
-start_y = 20
-end_y = 80
-y = np.linspace(start_y, end_y, int(np.floor(np.sqrt(Nb_Points_subgrid))))
+#start_y = 5
+#end_y = 20
+x = 12.5
 
 X, Y = np.meshgrid(x, y)
 Pos = np.stack([X.ravel(), Y.ravel()], axis=-1)
@@ -93,15 +92,13 @@ FM = shutter.FlipMount("37007726")
 print('Initialised Flip mount')
 
 #############################
-# Initialisation of the EMCCD
+# Initialisation of lock-in amplifier
 #############################
+LockInParaFile='ParameterLockIn.txt'
+LockInDevice=lock.LockInAmplifier(LockInParaFile)
 
-camera = EMCCD.LightFieldControl('TimeTraceEM')
-FrameTime = camera.GetFrameTime()
-ExposureTime = camera.GetExposureTime()
-NumberOfFrame = camera.GetNumberOfFrame()
-InstrumentsPara['PI EMCCD'] = camera.parameterDict
-print('Initialised EMCCD')
+InstrumentsPara['Lock-in-amplifier']=LockInDevice.parameterDict
+
 
 #############################
 # Preparation of the directory
@@ -109,7 +106,7 @@ print('Initialised EMCCD')
 print('Directory staging, please check other window')
 DirectoryPath = FileControl.PrepareDirectory(GeneralPara, InstrumentsPara)
 pd.DataFrame(GeneralPos).to_csv(DirectoryPath+'/Position.csv')
-camera.SetSaveDirectory(DirectoryPath.replace('/',"\\"))
+
 
 print('')
 
@@ -118,6 +115,7 @@ IteratorMes= np.nditer(MesNumber, flags=['f_index'])
 
 
 Laser.SetStatusShutterTunable(1)
+Result=pd.DataFrame(index=np.linspace(0,GeneralPos.shape[0],GeneralPos.shape[0],endpoint=False,dtype=int),columns=['x','y','R1','R1std','R2','R2std'])
 for k in IteratorMes:
 
     print('Progress:{}%'.format(np.round(100*k/(GeneralPos.shape[0]),2)),end='\r',flush=True)
@@ -128,8 +126,16 @@ for k in IteratorMes:
     else:
             x_axis.MoveTo(GeneralPos[k,0])
             y_axis.MoveTo(GeneralPos[k,1])
-    camera.Acquire()
-    camera.WaitForAcq()
+    Data=LockInDevice.AcquisitionLoop(time_exp)
+    Result.loc[str(k),'x']=GeneralPos[k,0]
+    Result.loc[str(k),'y']=GeneralPos[k,1]
+    Result.loc[str(k),'R1']=Data.loc[:,'R1'].mean()
+    Result.loc[str(k),'R1std']=Data.loc[:,'R1'].std()
+    Result.loc[str(k),'R2']=Data.loc[:,'R2'].mean()
+    Result.loc[str(k),'R2std']=Data.loc[:,'R2'].std()
+
+
+Result.to_csv(DirectoryPath+'/Data.csv')
 
 
 
