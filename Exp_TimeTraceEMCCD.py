@@ -11,6 +11,7 @@ import time as time
 import os
 import sys
 import pandas as pd
+import random
 
 os.system('cls')
 #############################
@@ -19,12 +20,14 @@ os.system('cls')
 TimeTimeTrace=10*60
 #Position Stage
 
-x = (6,12,18)
+x = (40,50,60)
 
-y = (18)
+y = (40,50,60)
 
 X, Y = np.meshgrid(x, y)
 Pos = np.stack([X.ravel(), Y.ravel()], axis=-1)
+index=random.sample(range(0, Pos.shape[0]), Pos.shape[0])
+Pos=Pos[index,:]
 
 print('Pos: {}'.format(Pos))
 Nb_points=Pos.shape[0]
@@ -62,12 +65,12 @@ if 'ControlConex' in sys.modules:
 
 elif 'ControlPiezoStage' in sys.modules:
     piezo= Ftransla.PiezoControl('COM15')
-    x_axis=Ftransla.PiezoAxisControl(piezo,'x',3)
-    y_axis=Ftransla.PiezoAxisControl(piezo,'y',3)
+    x_axis=Ftransla.PiezoAxisControl(piezo,'y',3)
+    y_axis=Ftransla.PiezoAxisControl(piezo,'z',3)
     print('Initialised piezo translation stage')
 
-x_axis.MoveTo(0)
-y_axis.MoveTo(0)
+x_axis.MoveTo(0.1)
+y_axis.MoveTo(0.1)
 #############################
 # Initialisation of the EMCCD
 #############################
@@ -106,9 +109,11 @@ for k in  IteratorMes:
     print('Measurement number:{}'.format(MesNumber[IteratorMes.index]))
     x_axis.MoveTo(Pos[k,0])
     y_axis.MoveTo(Pos[k,1])
-    FM.ChangeState(1)
+    
+    #FM.ChangeState(1)
+    print('\t x:{}um \n\t y:{} um'.format(x_axis.GetPosition(),y_axis.GetPosition()))
     camera.Acquire()
     camera.WaitForAcq()    
-    FM.ChangeState(0)
+    #FM.ChangeState(0)
 Laser.SetStatusShutterTunable(0)
 print('Experiment finished')
