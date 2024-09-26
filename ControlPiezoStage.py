@@ -42,12 +42,13 @@ class PiezoControl:
     
     
     # Set position on all axis
-    def SetX(self,pos):
-        self.SetCommand('set,0,{}'.format(np.round(float(pos),2)))
+    def SetX(self,pos):  
+        self.SetCommand('set,0,{}'.format(np.round(float(pos),3)))     
     def SetY(self,pos):
-        self.SetCommand('set,1,{}'.format(np.round(float(pos),2)))
+        self.SetCommand('set,1,{}'.format(np.round(float(pos),3)))
+
     def SetZ(self,pos):
-        self.SetCommand('set,2,{}'.format(np.round(float(pos),2)))
+        self.SetCommand('set,2,{}'.format(np.round(float(pos),3)))
     
     # Misc command    
     def SetCommand(self,cmd):
@@ -70,18 +71,18 @@ class PiezoAxisControl:
         pos=np.round(pos,3)
         t0=time.time()
         t1=time.time()-t0
-        while ((self.GetPosition()>pos+0.01) or (self.GetPosition()<pos-0.01)) and (t1< self.Timeout):
+        while ((self.GetPosition()>pos+0.008) or (self.GetPosition()<pos-0.008)) and (t1< self.Timeout):
             if self.axis=='x':
                 self.piezo.SetX(pos)
             elif self.axis=='y':
                 self.piezo.SetY(pos)
             elif self.axis=='z':
                 self.piezo.SetZ(pos)
-            time.sleep(0.01)
+            time.sleep(0.005)
             t1=time.time()-t0
             if t1>self.Timeout:
-                print('Warning: ControlPiezo, could not reach position \n\t Pos:{}\n\t Wanted Pos{} '.format(np.round(self.GetPosition(),3)),pos)
-
+                print('Warning: ControlPiezo, could not reach position \n\t Pos:{}\n\t Wanted Pos: {} '.format(np.round(self.GetPosition(),3),pos))
+        #print('\t Pos:{}\n\t Wanted Pos: {} '.format(np.round(self.GetPosition(),3),pos))
 
 
     def GetPosition(self):
@@ -95,14 +96,15 @@ class PiezoAxisControl:
             
 if __name__ == "__main__":
     piezo= PiezoControl('COM15')
-    x_axis=PiezoAxisControl(piezo,'x')
-    y_axis=PiezoAxisControl(piezo,'y')
-    z_axis=PiezoAxisControl(piezo,  'z')
+    x_axis=PiezoAxisControl(piezo,'x',2)
+    y_axis=PiezoAxisControl(piezo,'z',2)
+    z_axis=PiezoAxisControl(piezo,'y',2)
     # Sample plane is xz
     t0=time.time()
-    y_axis.MoveTo(0)
+    x_axis.MoveTo(0.1)
+    y_axis.MoveTo(0.1)
     t1=time.time()
     print(t1-t0)
-    z_axis.MoveTo(0)
-    print(y_axis.GetPosition())
-    print(z_axis.GetPosition())
+    #z_axis.MoveTo(40)
+    #print(y_axis.GetPosition())
+    #print(z_axis.GetPosition())
