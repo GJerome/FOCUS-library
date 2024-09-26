@@ -77,7 +77,7 @@ class LightFieldControl:
                 time.sleep(3)
                 print('Temperature of the camera : {}'.format(
                     self.experiment.GetValue(CameraSettings.SensorTemperatureReading)))
-            self.LoadExperiment(ExperimentName)
+            #self.LoadExperiment(ExperimentName)
 
         else:
 
@@ -117,7 +117,12 @@ class LightFieldControl:
 
     def GetFrameTime(self):
         '''Return the time it take to acquire a frame in second.'''
-        return 1/float(self.GetSettingValue(CameraSettings.AcquisitionFrameRate))
+        try:
+            value=1/float(self.GetSettingValue(CameraSettings.AcquisitionFrameRate))
+        except TypeError:
+            value=0
+            print('Frame rate:{}'.format(self.GetSettingValue(CameraSettings.AcquisitionFrameRate)))
+        return value
 
     def GetNumberOfFrame(self):
         '''Return number of frames for a single acquisition.'''
