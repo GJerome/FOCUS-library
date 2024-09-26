@@ -3,10 +3,8 @@ import ControlLaser as las
 import ControlPulsePicker as picker
 import FileControl
 import ControlPiezoStage as Transla
-import ControlEMCCD as EMCCD
+import ControlStreakCamera as StreakCamera
 
-import matplotlib.pyplot as plt
-import matplotlib as mat
 import numpy as np
 import pandas as pd
 import time as time
@@ -20,22 +18,29 @@ os.system('cls')
 #############################
 # Global parameter
 #############################
-Nb_Points_subgrid=4000
+Nb_Points_subgrid=600
 
+# Streak camera parameter
+Nb_exposure = 50 # number of integration
+Nb_loop = 240 # number of loop in the sequence
+MCP_Gain = 33
 
 #############################
 # Piezo parameter
 #############################
 
 #Definition of small grid
-
-start_x =20
-end_x = 80
+'''
+start_x = 5
+end_x = 20
 x = np.linspace(start_x, end_x, int(np.floor(np.sqrt(Nb_Points_subgrid))))
 
-start_y = 20
-end_y = 80
-y = np.linspace(start_y, end_y, int(np.floor(np.sqrt(Nb_Points_subgrid))))
+start_y = 5
+end_y = 20
+y = np.linspace(start_y, end_y, int(np.floor(np.sqrt(Nb_Points_subgrid))))'''
+x = (14)
+
+y = (8,12,16)
 
 X, Y = np.meshgrid(x, y)
 Pos = np.stack([X.ravel(), Y.ravel()], axis=-1)
@@ -44,8 +49,9 @@ SmallGrid=Pos[index,:]
 
 
 GeneralPos=SmallGrid
+Nb_points=GeneralPos.shape[0]
 
-print('Number of Points:{}\n'.format(GeneralPos.shape[0]))
+print('Number of Points:{}\n'.format(Nb_points))
 
 
 GeneralPara = {'Experiment name': ' DosingExperiment', 'Nb points': Nb_Points_subgrid,
@@ -93,15 +99,16 @@ FM = shutter.FlipMount("37007726")
 print('Initialised Flip mount')
 
 #############################
-# Initialisation of the EMCCD
+# Initialisation of the streak camera
 #############################
 
-camera = EMCCD.LightFieldControl('TimeTraceEM')
-FrameTime = camera.GetFrameTime()
-ExposureTime = camera.GetExposureTime()
-NumberOfFrame = camera.GetNumberOfFrame()
-InstrumentsPara['PI EMCCD'] = camera.parameterDict
-print('Initialised EMCCD')
+sc = StreakCamera.StreakCamera(PortCmd=1001, PortData=1002, Buffer=1024,
+                               IniFile='C:\ProgramData\Hamamatsu\HPDTA\SingleSweepExp.ini')
+sc.Set_NumberIntegration('AI', Nb_exposure)
+sc.Set_MCPGain(MCP_Gain)
+InstrumentsPara['Streak camera'] = {
+    'Nb_exposure': Nb_exposure, 'Nb_loop': Nb_loop, 'MCP gain': MCP_Gain}
+
 
 #############################
 # Preparation of the directory
@@ -109,7 +116,7 @@ print('Initialised EMCCD')
 print('Directory staging, please check other window')
 DirectoryPath = FileControl.PrepareDirectory(GeneralPara, InstrumentsPara)
 pd.DataFrame(GeneralPos).to_csv(DirectoryPath+'/Position.csv')
-camera.SetSaveDirectory(DirectoryPath.replace('/',"\\"))
+
 
 print('')
 
@@ -121,6 +128,9 @@ Laser.SetStatusShutterTunable(1)
 for k in IteratorMes:
 
     print('Progress:{}%'.format(np.round(100*k/(GeneralPos.shape[0]),2)),end='\r',flush=True)
+    os.mkdir(DirectoryPath+'\\Mes'+str(MesNumber[IteratorMes.index])+'x='+str(np.round(
+        Pos[MesNumber[IteratorMes.index], 0], 2))+'y='+str(np.round(Pos[MesNumber[IteratorMes.index], 1], 2)))
+
     if k==0:
             x_axis.MoveTo(GeneralPos[k,0])
             y_axis.MoveTo(GeneralPos[k,1])
@@ -128,9 +138,12 @@ for k in IteratorMes:
     else:
             x_axis.MoveTo(GeneralPos[k,0])
             y_axis.MoveTo(GeneralPos[k,1])
-    camera.Acquire()
-    camera.WaitForAcq()
-
+    sc.ShutterOpen()
+    sc.StartSeq('Analog Integration', Nb_loop)
+    sc.AsyncStatusReady()
+    sc.ShutterClose()
+    sc.BckgSubstraction()
+    sc.SaveSeq(DirectoryPath+'\\Mes'+str(MesNumber[IteratorMes.index])+'\\000001.img')
 
 
 FM.ChangeState(0)
