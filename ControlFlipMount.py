@@ -1,7 +1,8 @@
 try:
     from pylablib.devices import Thorlabs
-except:
-    print("pls execute pip install pylablib")
+except Exception as ex:
+    print(ex)
+    
 import time
 
 
@@ -11,6 +12,7 @@ class FlipMount:
         # Class allowing for the control of the MFF101/M Flip mount. This is just a wrapper form pylablib inmplementation
         self.Device = Thorlabs.kinesis.MFF(SN)
         self.TransTime=0.3
+        self.parameterDict = {'Serial number':SN,'Transition Time':self.TransTime}
 
     def ChangeState(self, state):
         '''Go to a specific state. If you are using it as a shutter please ensure that
@@ -39,6 +41,8 @@ class FlipMount:
 if __name__ == "__main__":
     a = FlipMount("37007726")
     print(a.GetFlipState())
-    t0=time.time()
+    #t0=time.time()
     a.FlipState()
-    print(time.time()-t0)
+    #print(time.time()-t0)
+
+

@@ -84,7 +84,7 @@ class LightFieldControl:
             self.Status = False
 
         self.parameterDict = {'Frame time': self.GetFrameTime(
-        ), 'Integration Time': self.GetExposureTime()}
+        ), 'Integration Time': self.GetExposureTime(),'EM Gain':self.GetEMGain()}
 
     def LoadExperiment(self, Name):
         result = self.experiment.Load(Name)
@@ -127,7 +127,12 @@ class LightFieldControl:
     def GetNumberOfFrame(self):
         '''Return number of frames for a single acquisition.'''
         return self.GetSettingValue(ExperimentSettings.AcquisitionFramesToStore)
-
+    
+    def GetEMGain(self):
+        '''Return current EM Gain.'''
+        return self.GetSettingValue(CameraSettings.AdcEMGain
+)
+    
     def GetExposureTime(self):
         '''Return exposure time in ms.'''
         return self.GetSettingValue(CameraSettings.ShutterTimingExposureTime)
@@ -150,6 +155,10 @@ class LightFieldControl:
         self.SetSettingValue(
             ExperimentSettings.AcquisitionFramesToStore, NbFrame)
     
+    def SetEMGain(self, Gain):
+        self.SetSettingValue(
+            CameraSettings.AdcEMGain, str(Gain))
+    
     
     def SetSaveDirectory(self, Directory):
         self.SetSettingValue(
@@ -168,13 +177,23 @@ class LightFieldControl:
                 '{0} {1} = {2}', "\tReading ",
                 str(setting),
                 self.experiment.GetValue(setting)))
+    def print_settingMaxValue(self, setting):
+        # Check for existence before
+        # getting gain, adc rate, or adc quality
+        if self.experiment.Exists(setting):
+            print(String.Format(
+                '{0} {1} = {2}', "\tReading ",
+                str(setting),
+                self.experiment.GetValue(setting)))
 
 
 if __name__ == "__main__":
-    emccd = LightFieldControl(ExperimentName='TimeTraceEM')
-    emccd.print_setting(CameraSettings.AcquisitionReadoutRate)
-    emccd.print_setting(ExperimentSettings.FileNameGenerationDirectory)
-    # time.sleep(10)
+    emccd = LightFieldControl(ExperimentName='ML')
+    emccd.print_setting(CameraSettings.AdcEMGain)
+    emccd.SetEMGain(1)
+    emccd.print_setting(CameraSettings.AdcEMGain)
+    #emccd.print_setting(ExperimentSettings.FileNameGenerationDirectory)
+    time.sleep(10)
     '''
     if emccd.Status == False:
         print("The experiment couldn't be setup please close all instance of Lightfield, check connection and retry.")
