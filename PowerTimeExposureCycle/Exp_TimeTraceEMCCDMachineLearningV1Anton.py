@@ -47,10 +47,13 @@ class timeTraceRunner:
         self.Pos = np.stack([X.ravel(), Y.ravel()], axis=-1)
         index=random.sample(range(0, self.Pos.shape[0]), self.Pos.shape[0])
         self.Pos=self.Pos[index,:]
+        self.GeneralPara['Nb_points']=self.Pos.shape[0]
+        self.Nb_Points = self.Pos.shape[0]
         try:
-            print('Number of Points:{}\nDistance between points:\n\t x ={} \n\t y ={}'.format(len(self.Pos),x[1]-x[0], y[1]-y[0]))
+            print('Number of Points:{}-{}\nDistance between points:\n\t x ={} \n\t y ={}'.format(self.Nb_Points,self.Pos.shape[0],x[1]-x[0], y[1]-y[0]))
         except IndexError:
-            print('Number of Points:{}\n'.format(len(self.Pos)))
+            print('Number of Points:{}\n'.format(self.Pos.shape[0]))
+
 
     def initializeInstruments(self):
         self.InstrumentsPara = {}
@@ -73,9 +76,10 @@ class timeTraceRunner:
         # Initialisation of the EMCCD
         #############################
         self.camera = EMCCD.LightFieldControl('ML')
-        #FrameTime = camera.GetFrameTime()
-        #ExposureTime = camera.GetExposureTime()
-        #NumberOfFrame = camera.GetNumberOfFrame()
+        self.FrameTime = self.camera.GetFrameTime()
+        self.ExposureTime = self.camera.GetExposureTime()
+        self.NumberOfFrame = self.camera.GetNumberOfFrame()
+        self.camera.SetEMGain(1)
         self.InstrumentsPara['PI EMCCD'] = self.camera.parameterDict
         print('Initialised EMCCD')
 
@@ -83,6 +87,7 @@ class timeTraceRunner:
         # Initialisation of the shutter
         #############################
         self.FM = shutter.FlipMount("37007726")
+        self.InstrumentsPara['FlipMount']=self.FM.parameterDict
         print('Initialised Flip mount')
 
     #############################
@@ -111,11 +116,13 @@ class timeTraceRunner:
             os.makedirs(out_dir)
         self.DirectoryPath = FileControl.PrepareDirectory(self.GeneralPara, self.InstrumentsPara)
         pd.DataFrame(self.Pos).to_csv(self.DirectoryPath+'/Position.csv')
-        self.camera.SetSaveDirectory(self.DirectoryPath.replace('/',"\\"))
+        #self.camera.SetSaveDirectory(self.DirectoryPath.replace('/',"\\"))
+
     #############################
     # TimeTrace loop
     #############################
-    def runTimeTrace(self, StabilityTime, df_t_cyc, df_p_cyc, df_p_cyc_calib):
+    def runTimeTrace(self,StabilityTime_Begin,StabilityTime_Reset,StabilityTime_End,
+                            PowerProbePulsePicker,EmGainProbe, df_t_cyc, df_p_cyc, df_p_cyc_calib):
         '''The parameters are the following: 
         -df_t_cyc: list of the random time selected for one cycle
         -df_p_cyc: list of the random power selected for one cycle
@@ -153,19 +160,40 @@ class timeTraceRunner:
             T_tot = np.sum(t_cyc)
 
             # Camera setting adjustement
-            NbFrameCycle = np.ceil((T_tot+StabilityTime)/self.camera.GetFrameTime())
+            NbFrameCycle = NbFrameCycle = np.ceil((T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset)/self.FrameTime)
             self.camera.SetNumberOfFrame(NbFrameCycle)
             print('Time cycle:{}'.format(t_cyc.tolist()))
             print('Power cycle:{}'.format(p_cyc.tolist()))
             print('Real Power cycle:{}'.format(p_cyc_calib.tolist()))
-            print('Total time={}'.format(T_tot+StabilityTime))
+            print('Total time={}'.format(T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset))
 
             #Create timing parameter
             t_sync=np.zeros(len(t_cyc))
-            self.FM.ChangeState(0)
-            self.camera.Acquire()  # Launch acquisition
+            self.camera.SetEMGain(EmGainProbe)
+            self.camera.Acquire()# Launch acquisition
+            self.FM.ChangeState(1)  
             t0=time.time()
-            # Power iteration
+
+            ###############
+            # Stability time beginning
+            ###############
+            print('Stability time beginning')
+            self.pp.SetPower(PowerProbePulsePicker)
+            time.sleep(StabilityTime_Begin)
+            self.camera.SetEMGain(EmGainProbe)
+
+            ###############
+            # Reset  time
+            ###############
+            print('Reset time')
+            self.FM.ChangeState(0)
+            time.sleep(StabilityTime_Reset)
+            self.FM.ChangeState(1)
+
+            #############################
+            #Power/Time  iteration
+            #############################
+                
             for j in IteratorCyc:
                 print('Cycle {}: P={},t={}'.format(IteratorCyc.index,p_cyc[IteratorCyc.index],t_cyc[IteratorCyc.index]))
                 if p_cyc[IteratorCyc.index] == 0:
@@ -176,12 +204,23 @@ class timeTraceRunner:
                 t_sync[IteratorCyc.index]=time.time()-t0
                 time.sleep(t_cyc[IteratorCyc.index])
             IteratorCyc.reset()
-            # once it finished we set the power to the minimum and continue measurement
+
+            
+            #############################
+            # Stability time at the end 
+            #############################
+
+            
             print('Stability Time')
             self.FM.ChangeState(1)
-            self.pp.SetPower(np.min(p_cyc_calib))
-            self.camera.SetEMGain(10)
+            self.pp.SetPower(PowerProbePulsePicker)
+            self.camera.SetEMGain(EmGainProbe)
             self.camera.WaitForAcq()
+
+            #############################
+            # Acq finished
+            #############################
+
             self.FM.ChangeState(0)
             self.camera.SetEMGain(1)
 
@@ -208,7 +247,6 @@ def generateRandomParameters(Nb_Points, Nb_Cycle):
     ###################
     P = (0, 4.4, 10, 100, 800)  # power in uW
     P_calib = (500, 500,800, 2300, 6800)  # Power from the pp to reach values of P
-    #p0 = [0.2, 0.2, 0.2, 0.2, 0.2]
     p1 = [0.3, 0.175, 0.175, 0.175, 0.175]
     ProbaP = p1
 
@@ -216,7 +254,6 @@ def generateRandomParameters(Nb_Points, Nb_Cycle):
     # Proba density function Time
     ###################
     t = (0.1, 1, 10, 100)  # time
-    #p0 = [0.25, 0.25, 0.25, 0.25]
     p1 = [0.3, 0.23, 0.23, 0.24]
     ProbaT = p1
 
@@ -286,19 +323,28 @@ def loadExperimentInfo(CycleStore, Nb_pts):
 
     return Pos, p_cyc, TimeCycle, TimeSync
     
-def LoadDataFromFiles(FileDir):
+def LoadDataFromFiles(FileDir,FolderCalibWavelength,WaveCenter):
     ## We first need to generate the datafile 
         # Compute wavelength
-    a = 2.354381287460651
-    b = 490.05901104995587
+    try:
+        temp = pd.read_csv(FolderCalibWavelength, sep='\t', decimal=',')
+        print('Reading wavelength calibraton at : {}'.format(FolderCalibWavelength))
+        a = temp.loc[:, 'a'].to_numpy()
+        b = temp.loc[:, 'b'].to_numpy()
+    except:
+        print('Problem reading wavelength calibraton at : {}\n Taking default value'.format(FolderCalibWavelength))
+        a = 2.354381287460651
+        b = 490.05901104995587
     PixelNumber = np.linspace(1, 1024, 1024)
-    CenterPixel = 700
+    CenterPixel = WaveCenter
     Wavelength = (PixelNumber-b)/a+CenterPixel
 
-    Folder = glob.glob('FileDir/Mes*')
+    Folder = glob.glob(FileDir+'/Mes*')
     CycleStore = pd.DataFrame()
     DataTot = []
     for j in range(len(Folder)):
+        print('\r Reading Files:{} %'.format(
+            np.round(100*j/len(Folder), 1)), end='', flush=True)
         File = glob.glob(Folder[j]+'/*[0-9].spe')
         DataRaw = sl.load_from_files(File)
         MetaData = pd.DataFrame(DataRaw.metadata)
@@ -312,10 +358,13 @@ def LoadDataFromFiles(FileDir):
 
         FileCycle = pd.read_csv(Folder[j]+'\Cycle.csv')
         CycleStore = pd.concat([CycleStore, FileCycle], axis=1)
+    
+    DataTot = pd.concat(DataTot).set_index(['Mes', 'Time'])
     print('Finished loading, beginning compression')
+
     DataTot.to_pickle("./TimeTraceFull.pkl", compression='xz')
     CycleStore.to_csv('./BatchCycle.csv', index=False)
-    DataTot = pd.concat(DataTot).set_index(['Mes', 'Time'])
+    
   
     FileNameTimeTraceFull=FileDir+'/TimeTraceFull.pkl'
     FileNameCycle=FileDir+'/BatchCycle.csv'
@@ -376,10 +425,25 @@ if __name__ == '__main__':
     Nb_Points = 50  # Number of position for the piezo
     Nb_Cycle = 10  # Number of cycle during experiment
     DistancePts = 10
-    StabilityTime = 30
-    GeneralPara = {'Experiment_name': 'EMCCDRepeatDiffPos', 'Nb_points': Nb_Points,
-               'Distance_Between_Points ': DistancePts,
+
+    StabilityTime_Begin=20# Time for which it will probe at the beginning of the cycle
+    StabilityTime_Reset=30# The beam will then be block for this amount of time so that the sample 'reset'
+    StabilityTime_End = 30# Time for which it will probe at the end of the cycle
+    #The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
+    PowerProbePulsePicker=500
+    EmGainProbe=10
+
+    Spectrograph_slit=10 # This is just for record not actually setting it up
+    Spectrograph_Center=750# This is just for record not actually setting it up
+
+    FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
+
+    GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points':Nb_Points,
+               'Stability time begin ': StabilityTime_Begin,'Stability time reset':StabilityTime_Reset,
+               'Stability time end ': StabilityTime_End,
+               'Power probe ':PowerProbePulsePicker,'Em Gain probe':EmGainProbe,'Spectrograph slit width':Spectrograph_slit,'Spectrograph center Wavelength':Spectrograph_Center,
                'Note': 'The SHG unit from Coherent was used'}
+
     FileDir = '/export/scratch2/constellation-data/EnhancePerov/output-dummy/'
 
     df_t_cyc, df_p_cyc, df_p_cyc_calib = generateRandomParameters(Nb_Points, Nb_Cycle) #generate random initial population
@@ -405,10 +469,12 @@ if __name__ == '__main__':
         print("################")
 
         # run the experiment
-        runner.runTimeTrace(StabilityTime, df_t_cyc, df_p_cyc, df_p_cyc_calib)
+        runner.runTimeTrace(StabilityTime_Begin,StabilityTime_Reset,StabilityTime_End,
+                            PowerProbePulsePicker,EmGainProbe, df_t_cyc, df_p_cyc, df_p_cyc_calib)
         
         # calculate fitness values
-        fitness_values = evaluateFitnessValues(runner.DirectoryPath)
+        FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
+        fitness_values = evaluateFitnessValues(runner.DirectoryPath,FolderCalibWavelength,Spectrograph_Center)
        
         # update population
         df_t_cyc, df_p_cyc, df_p_cyc_calib = generateNewSolutions(df_t_cyc, df_p_cyc, df_p_cyc_calib, fitness_values)
