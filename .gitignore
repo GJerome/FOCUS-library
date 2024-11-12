@@ -4,8 +4,11 @@ __pycache__/
 Atrier/
 DataAnalysis/DataPLQY/
 DataAnalysis/DataStreakPL/
+PowerTimeCycles/
 
 # Data file to ignore
 *.pkl
 DataAnalysis/Misc_LaserParam.ipynb
 TestList.py
+Parameter*
+parameter*
