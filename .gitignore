@@ -4,7 +4,7 @@ __pycache__/
 Atrier/
 DataAnalysis/DataPLQY/
 DataAnalysis/DataStreakPL/
-PowerTimeExposureCycle/
+PowerTimeExposureCycle/PowerTimeCycles/
 
 # Data file to ignore
 *.pkl
