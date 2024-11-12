@@ -20,21 +20,29 @@ os.system('cls')
 #############################
 # Global parameter
 #############################
-Nb_Points_subgrid=4000
+Nb_Points_subgrid=1500
+EMGain=10
 
-
+# The way it is set up is so that it will iterate thought Divratio and take the associated element in PowerPulsePicker
+#So first element of DivRatio will take the first element of PowerPulsePicker
+DivRatio=16
+PowerPulsePicker=1400
+ProbePower=10# Power of the probe in uW. This will not change anything in the scipt it is just for recording purpose
+Spectrograph_slit=10 # This is just for record not actually setting it up
+Spectrograph_Center=750# This is just for record not actually setting it up
 #############################
 # Piezo parameter
 #############################
 
 #Definition of small grid
 
-start_x =20
-end_x = 80
-x = np.linspace(start_x, end_x, int(np.floor(np.sqrt(Nb_Points_subgrid))))
+start_x =30
+end_x = 70
+start_y = 30
+end_y = 70
 
-start_y = 20
-end_y = 80
+
+x = np.linspace(start_x, end_x, int(np.floor(np.sqrt(Nb_Points_subgrid))))
 y = np.linspace(start_y, end_y, int(np.floor(np.sqrt(Nb_Points_subgrid))))
 
 X, Y = np.meshgrid(x, y)
@@ -48,7 +56,9 @@ GeneralPos=SmallGrid
 print('Number of Points:{}\n'.format(GeneralPos.shape[0]))
 
 
-GeneralPara = {'Experiment name': ' DosingExperiment', 'Nb points': Nb_Points_subgrid,
+GeneralPara = {'Experiment name': ' PLMap', 'Nb points': Nb_Points_subgrid,
+               'Power pulse picker':PowerPulsePicker,'Div ratio':DivRatio,'Probe recorded power before BS [uW]':ProbePower,
+               'Spectro center wavelength':Spectrograph_Center,'spectro slit width':Spectrograph_slit,
                'Note': 'The SHG unit from Coherent was used'}
 
 InstrumentsPara = {}
@@ -67,6 +77,8 @@ print('Initialised Laser')
 
 pp = picker.PulsePicker("USB0::0x0403::0xC434::S09748-10A7::INSTR")
 InstrumentsPara['Pulse picker'] = pp.parameterDict
+pp.SetPower(PowerPulsePicker)
+pp.SetDivRatio(DivRatio)
 print('Initialised pulse picker')
 
 #############################
@@ -96,9 +108,11 @@ print('Initialised Flip mount')
 # Initialisation of the EMCCD
 #############################
 
-camera = EMCCD.LightFieldControl('TimeTraceEM')
+camera = EMCCD.LightFieldControl('ML')
 FrameTime = camera.GetFrameTime()
 ExposureTime = camera.GetExposureTime()
+camera.SetNumberOfFrame(1.0)
+camera.SetEMGain(EMGain)
 NumberOfFrame = camera.GetNumberOfFrame()
 InstrumentsPara['PI EMCCD'] = camera.parameterDict
 print('Initialised EMCCD')
