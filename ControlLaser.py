@@ -148,7 +148,7 @@ if __name__ == "__main__":
     print(Laser.GetWavelength())
 
     Laser.SetStatusShutterTunable(1)
-    Laser.SetWavelengthTunable(400)
+    Laser.SetWavelengthTunable(450)
     Laser.WaitForTuning()
     #Laser.GetStatusShutterTunable()
 

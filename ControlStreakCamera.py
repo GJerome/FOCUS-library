@@ -71,7 +71,7 @@ class StreakCamera:
     def SaveSeq(self,Folder):
         self.AcqStatusReady()
         print('Saving sequence')
-        self.Sendcommand('SeqSave(IMG,'+Folder+')',1024)
+        self.Sendcommand('SeqSave(IMG,'+Folder+')',2048)
         self.AsyncStatusReady()
 
     def Set_NumberIntegration(self,Mode,Nbr):

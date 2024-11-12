@@ -19,7 +19,8 @@ class PulsePicker:
         # Connexion to the serial port
         self.RessourceManager = instco.ResourceManager()
         try:
-            self.Instrument=self.RessourceManager.open_resource(Adress)
+            self.Instrument=self.RessourceManager.open_resource(Adress,access_mode=0)
+
             
         except instco.VisaIOError as err:
             print('Could not connect to the instrument')
@@ -30,17 +31,19 @@ class PulsePicker:
         self.Instrument.timeout = 5
         self.Instrument.write_termination = "\r\x00"
         self.Instrument.read_termination = "\r\x00"
-        
+
         try:
             self.RepRate=80E6/self.GetDivRatio() # If the script stops at this point, the best bet is to reboot the pp
         except TypeError:
             print('The instrument is connected but an unexpected response occured.')
             self.RessourceManager.close()
             sys.exit()
-        except instco.errors.VisaIOError:
-            print('The best bet is to reboot the pp to fix the error')
+        except instco.errors.VisaIOError as e:
+            print('The best bet is to reboot the pp to fix the error:{}'.format(e))
             self.RessourceManager.close()
             sys.exit()
+        except:
+            print('Unexpected error')
             
         self.Power=self.GetPower()
         self.PulseDelay=self.GetPulseDelay()
@@ -136,9 +139,9 @@ if __name__ == "__main__":
     #FindDevice()
     pp=PulsePicker("USB0::0x0403::0xC434::S09748-10A7::INSTR")
     #print(type(pp.QueryCommand('PWR_ON?')))
-    #pp.SetDivRatio(20)
+    #pp.SetDivRatio(4)
     #print(pp.Instrument.query_ascii_values('*IDN?'))
     print(pp.parameterDict)
-    pp.SetPower(500)
+    #pp.SetPower(1400)
     #print(pp.SetPowerState(1))
     print(pp.GetDivRatio())
