@@ -22,8 +22,8 @@ Nb_Points_subgrid=600
 
 # Streak camera parameter
 Nb_exposure = 50 # number of integration
-Nb_loop = 240 # number of loop in the sequence
-MCP_Gain = 33
+Nb_loop = 120 # number of loop in the sequence
+MCP_Gain = 34
 
 #############################
 # Piezo parameter
@@ -38,9 +38,9 @@ x = np.linspace(start_x, end_x, int(np.floor(np.sqrt(Nb_Points_subgrid))))
 start_y = 5
 end_y = 20
 y = np.linspace(start_y, end_y, int(np.floor(np.sqrt(Nb_Points_subgrid))))'''
-x = (14)
+x = (40,60)
 
-y = (8,12,16)
+y = (40,60)
 
 X, Y = np.meshgrid(x, y)
 Pos = np.stack([X.ravel(), Y.ravel()], axis=-1)
@@ -143,7 +143,8 @@ for k in IteratorMes:
     sc.AsyncStatusReady()
     sc.ShutterClose()
     sc.BckgSubstraction()
-    sc.SaveSeq(DirectoryPath+'\\Mes'+str(MesNumber[IteratorMes.index])+'\\000001.img')
+    sc.SaveSeq(DirectoryPath+'\\Mes'+str(MesNumber[IteratorMes.index])+'x='+str(np.round(
+        Pos[MesNumber[IteratorMes.index], 0], 2))+'y='+str(np.round(Pos[MesNumber[IteratorMes.index], 1], 2))+'\\000001.img')
 
 
 FM.ChangeState(0)
