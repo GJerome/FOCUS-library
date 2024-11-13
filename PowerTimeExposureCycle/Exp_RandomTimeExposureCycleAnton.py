@@ -1,4 +1,14 @@
 USE_DUMMY = False
+import os
+import sys
+os.system('cls')
+sys.path.append('../')
+
+import numpy as np
+import pandas as pd
+import glob
+import random 
+import spe_loader as sl
 
 if USE_DUMMY:
     import ControlDummy as shutter
@@ -15,14 +25,8 @@ else:
     import ControlPiezoStage as Transla
     import time as time
 
-import numpy as np
-import pandas as pd
-import os
-import sys
 import FileControl
-import glob
-import spe_loader as sl
-import random 
+
 
 def ParameterRead(ParameterFile):
     ParameterList={}
