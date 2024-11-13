@@ -1,3 +1,16 @@
+import time as time
+import os
+import sys
+os.system('cls')
+sys.path.append('../')
+
+import numpy as np
+import pandas as pd
+import random
+import glob as glob
+import spe_loader as sl
+
+
 import ControlFlipMount as shutter
 import ControlLaser as las
 import ControlPulsePicker as picker
@@ -5,15 +18,7 @@ import ControlEMCCD as EMCCD
 import FileControl
 import ControlPiezoStage as Transla
 
-import numpy as np
-import pandas as pd
-import time as time
-import os
-import sys
-import random
-import glob as glob
-import spe_loader as sl
-os.system('cls')
+
 
 #############################
 # Global parameter
