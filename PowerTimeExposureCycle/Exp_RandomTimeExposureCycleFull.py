@@ -1,8 +1,11 @@
 import time as time
 import os
 import sys
+import inspect
 os.system('cls')
-sys.path.append('../')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) 
+
+
 
 import numpy as np
 import pandas as pd
@@ -17,7 +20,6 @@ import ControlPulsePicker as picker
 import ControlEMCCD as EMCCD
 import FileControl
 import ControlPiezoStage as Transla
-
 
 
 #############################
