@@ -24,6 +24,17 @@ import glob
 import spe_loader as sl
 import random 
 
+def ParameterRead(ParameterFile):
+    ParameterList={}
+    with open(ParameterFile,'r') as ParaFile:
+        for line in ParaFile:
+            if line[0]!= '#':
+                try:
+                    ParameterList[line[0:line.index('=')]]=line[line.index('=')+1:].strip()
+                except ValueError:
+                    pass
+    return ParameterList
+
 class timeTraceRunner:
     def __init__(self, **kwargs):
         self.GeneralPara = kwargs
@@ -282,16 +293,20 @@ def evaluateFitnessValues(FileDir):
     TimeTraceU=DataTot[WavelengthFilter].sum(axis=1).unstack(level=0)
     Nb_pts=int(TimeTraceU.shape[1])
 
-    Pos, p_cyc, TimeCycle, TimeSync = loadExperimentInfo(CycleStore, Nb_pts)
-    t_global=pd.Series(TimeCycle.cumsum().iloc[-1,:],index=range(Nb_pts))
+    Pos, p_cyc, TimeCycle, TimeSync,t_globalSync,StabilityTime_begin,StabilityTime_reset,StabilityTime_end = loadExperimentInfo(CycleStore, Nb_pts,FileDir)
+
+    ts=np.zeros(Nb_pts,dtype=int)
+    ts_b=np.zeros(Nb_pts,dtype=int)
 
     # Compute fitnesses
     fitness_values = np.zeros(Nb_pts)
     for i in range(Nb_pts):
         temp_df=TimeTraceU.iloc[:,i].dropna()
         #integrated_int=temp_df.sum()
-        ts=np.argmin(np.abs(temp_df.index-t_global[i]))
-        fitness_values[i] = temp_df.iloc[ts:].mean(axis=0) # insert mean intensity of stability region as fitness value of measurement i
+        ts[i]=np.argmin(np.abs(temp_df.index-t_globalSync[i]))
+        ts_b[i]=np.argmin(np.abs(temp_df.index-StabilityTime_begin))
+
+        fitness_values[i] = temp_df.iloc[ts[i]+10:-10].mean(axis=0)/temp_df.iloc[10:ts_b[i]-10].mean(axis=0) # insert mean intensity of stability region as fitness value of measurement i
     print("# FITNESS VALUES #")
     print(fitness_values)
     return fitness_values
@@ -300,10 +315,36 @@ def generateNewSolutions(df_t_cyc, df_p_cyc, df_p_cyc_calib, fitness_values):
     # TODO - implement selection and variation step of evolutionary algorithm
     return df_t_cyc, df_p_cyc, df_p_cyc_calib
 
-def loadExperimentInfo(CycleStore, Nb_pts):
+def loadExperimentInfo(CycleStore, Nb_pts,FileDir):
+
+    #############################
+    # Reading global parameters
+    #############################
+    para=ParameterRead(FileDir+'/ExperimentParameter.txt')
+    try:
+        StabilityTime_begin=float(para['Stability time begin '])
+        StabilityTime_reset=float(para['Stability time reset'])
+        StabilityTime_end=float(para['Stability time end '])
+        if para['Probe DiffDivRatio']=='True':
+            FrequencyProbe=80/pd.DataFrame((para['Div ratio probe used'][1:-1].split(',')),dtype=float)
+        elif para['Probe DiffDivRatio']=='False':
+            FrequencyProbe=pd.Series((para['Repetition rate'].split('.')[0]),dtype=float)/1E6
+        Nb_ProbeFreq=len(FrequencyProbe)
+    except:
+        print('Could not read parameters, please check parameter file')
+        StabilityTime_begin=10
+        StabilityTime_reset=30
+        StabilityTime_end=30
+
+    #############################
+    # Reading cycle info
+    #############################
+
     p_cyc=pd.DataFrame(index=range(10), columns=range(Nb_pts))
     TimeSync=pd.DataFrame(index=range(10), columns=range(Nb_pts))
     TimeCycle=pd.DataFrame(index=range(10), columns=range(Nb_pts))
+    t_globalSync=pd.Series(TimeSync.iloc[-1,:],index=range(Nb_pts))
+
     for i in range(Nb_pts):
         if i==0:
             p_cyc.iloc[:,i]=CycleStore.loc[:,'Power send']
@@ -314,14 +355,11 @@ def loadExperimentInfo(CycleStore, Nb_pts):
             p_cyc.iloc[:,i]=CycleStore.loc[:,'Power send.{}'.format(i)]
             TimeCycle.iloc[:,i]=CycleStore.loc[:,'Exposure Time.{}'.format(i)]
             TimeSync.iloc[:,i]=CycleStore.loc[:,'Sync.{}'.format(i)]
+        t_globalSync[i]=t_globalSync[i]+TimeCycle.iloc[-1,i]
 
-    Pos=np.zeros([Nb_pts,2])
-    for i in range(Nb_pts):
-        x_temp=float(glob.glob(FileDir+'Mes*')[i].split('x=')[1].split('y=')[0])
-        y_temp=float(glob.glob(FileDir+'Mes*')[i].split('y=')[1])
-        Pos[i,:]=[x_temp,y_temp]
+    Pos=pd.read_csv(FileDir+'/Position.csv').iloc[:,1:].to_numpy()
 
-    return Pos, p_cyc, TimeCycle, TimeSync
+    return Pos, p_cyc, TimeCycle, TimeSync,t_globalSync,StabilityTime_begin,StabilityTime_reset,StabilityTime_end
     
 def LoadDataFromFiles(FileDir,FolderCalibWavelength,WaveCenter):
     ## We first need to generate the datafile 
