@@ -8,11 +8,14 @@ import time
 
 class FlipMount:
 
-    def __init__(self, SN):
+    def __init__(self, SN,Name=None):
         # Class allowing for the control of the MFF101/M Flip mount. This is just a wrapper form pylablib inmplementation
         self.Device = Thorlabs.kinesis.MFF(SN)
         self.TransTime=0.3
-        self.parameterDict = {'Serial number':SN,'Transition Time':self.TransTime}
+        if Name==None:
+            self.parameterDict = {'Serial number':SN,'Transition Time':self.TransTime,}
+        else:
+            self.parameterDict = {'{} Serial number'.format(str(Name)):SN,'{} Transition Time'.format(str(Name)):self.TransTime,}
 
     def ChangeState(self, state):
         '''Go to a specific state. If you are using it as a shutter please ensure that
@@ -39,10 +42,15 @@ class FlipMount:
 
 
 if __name__ == "__main__":
-    a = FlipMount("37007726")
-    print(a.GetFlipState())
+    InstrumentsPara = {}
+    FM = FlipMount("37007726",'Shutter')
+    FM_ND = FlipMount("37007725",'ND0.5')
+    #print(FM.parameterDict)
+    InstrumentsPara['FlipMount']=FM.parameterDict #| FM_ND.parameterDict
+    
+    print(FM_ND.GetFlipState())
     #t0=time.time()
-    a.FlipState()
+    #a.FlipState()
     #print(time.time()-t0)
 
 
