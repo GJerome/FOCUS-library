@@ -27,30 +27,30 @@ import ControlPiezoStage as Transla
 #############################
 
 
-Nb_Points = 4  # Number of position for the piezo
+Nb_Points =8  # Number of position for the piezo
 
-start_x =40
-end_x = 60
-start_y = 40
-end_y = 60
+start_x =5
+end_x = 75
+start_y = 5
+end_y = 75
 
 
 Nb_Cycle = 10 # Number of cycle during experiment
 
-StabilityTime_Begin=20# Time for which it will probe at the beginning of the cycle
+StabilityTime_Begin=30# Time for which it will probe at the beginning of the cycle
 StabilityTime_Reset=30# The beam will then be block for this amount of time so that the sample 'reset'
 StabilityTime_End = 30# Time for which it will probe at the end of the cycle
 #The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
 
 PowerProbePulsePicker=500
-EmGainProbe=10
+EmGainProbe=50
 
 
 OnlyOneConfig=True # Set it  to true so that it only probe with one config for Nb_points
 OnlyOneConfig_Random=False # Set it  to true so that this config is random
 OnlyOneConfig_UseCurentCalib=False #Not implemented yet, Set it  to true if you want it to use the current calibration or False if it should read the power send to the pulse picker from a file
 
-ProbeDiffDivRatio= True #For the probing it set to true The staiblity time can be done at specific rep rate and power
+ProbeDiffDivRatio= False #For the probing it set to true The staiblity time can be done at specific rep rate and power
 DivRatio=[16,4]# A list containing the different div ratio
 PowerProbe=[1300,600]# A list containing the power to use to probe
 
@@ -92,8 +92,8 @@ InstrumentsPara = {}
 ###################
 P = (0, 4.4, 10, 100, 200)  # power in uW
 #Value to reach on the powermeter (0,11,25,240,475)uW
-#P_calib = (500, 500,900, 2500, 3700)  # Power from the pp to reach values of P #20MHz
-P_calib = (500, 1400,2000, 6100, 9300)  # Power from the pp to reach values of P #5MHz
+P_calib = (500, 500,900, 2400, 3500)  # Power from the pp to reach values of P #20MHz
+#P_calib = (500, 1400,2000, 6100, 9300)  # Power from the pp to reach values of P #5MHz
 #P_calib = (500, 1700,2500, 10000, 17500)  # Power from the pp to reach values of P #500kHz
 
 p0 = [0.2, 0.2, 0.2, 0.2, 0.2]
@@ -121,7 +121,7 @@ rng = np.random.default_rng()
 
 if OnlyOneConfig==True:
     if OnlyOneConfig_Random==False:
-        FileConfig='./PowerTimeCycles/BestCycle5MHz241101.csv'
+        FileConfig='./PowerTimeExposureCycle/PowerTimeCycles/Cycle20MHzSwap.csv'
         print('Reading file {} for power/time config '.format(FileConfig))
         # For the moment we assume only one config
         Cycle_info=pd.read_csv(FileConfig)
@@ -132,23 +132,24 @@ if OnlyOneConfig==True:
             P_Final_calib=Cycle_info.loc[:,'Power Pulse-picker'].to_numpy()
         else:
             P_Final_calib=Cycle_info.loc[:,'Power Pulse-picker'].to_numpy()
-
+        Nb_Cycle=Cycle_info.shape[0]
     else:
         print('One random cycle configuration')
         # Intensity/Power Cycle generation
         T_final = rng.choice(t, Nb_Cycle, p=ProbaT)
         # First we generate an array of cycle which only contains index for the moment
-        P_Final = rng.choice(np.linspace(0, len(P), len(
+        temp = rng.choice(np.linspace(0, len(P), len(
             P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
 
-        while P_Final[0] == 0:  # We assume that the first element of P is the zero power element
-            P_Final = rng.choice(np.linspace(0, len(P), len(P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
+        while temp[0] == 0:  # We assume that the first element of P is the zero power element
+            temp = rng.choice(np.linspace(0, len(P), len(P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
+        P_Final_calib=np.array([P_calib[i] for i in temp])
+        P_Final=np.array([P[i] for i in temp])
 else:
     print('This experiment will consist of a series of {} random cycles'.format(Pos.shape[0]))   
 #############################
 # Initialisation of laser
 #############################
-
 Laser = las.LaserControl('COM8', 'COM17', 0.5)
 
 InstrumentsPara['Laser'] = Laser.parameterDict
@@ -192,9 +193,11 @@ print('Initialised EMCCD')
 # Initialisation of the shutter
 #############################
 
-FM = shutter.FlipMount("37007726")
-InstrumentsPara['FlipMount']=FM.parameterDict
+FM = shutter.FlipMount("37007726",'Shutter')
+FM_ND = shutter.FlipMount("37007725",'ND05') # state 1 is the one with the ND
+InstrumentsPara['FlipMount']=FM.parameterDict | FM_ND.parameterDict
 print('Initialised Flip mount')
+
 
 #############################
 # Preparation of the directory
@@ -273,9 +276,10 @@ for k in IteratorMes:
 # Stability time at the begining 
 #############################
     print('Probe begin')
-    FM.ChangeState(1)
+    FM_ND.ChangeState(1)
     camera.SetEMGain(EmGainProbe)
-    camera.Acquire()  # Launch acquisition
+    camera.Acquire() 
+    FM.ChangeState(1) # Launch acquisition
     t0=time.time()
 
     if ProbeDiffDivRatio==False:
@@ -295,6 +299,7 @@ for k in IteratorMes:
 #############################
     print('Reset time')
     FM.ChangeState(0)
+    FM_ND.ChangeState(0)
     time.sleep(StabilityTime_Reset)
     FM.ChangeState(1)
 
@@ -316,8 +321,9 @@ for k in IteratorMes:
 # Stability time at the end 
 #############################
 
-
+    FM_ND.ChangeState(1)
     FM.ChangeState(1)
+    
     camera.SetEMGain(EmGainProbe)
     if ProbeDiffDivRatio==False:
         pp.SetPower(PowerProbePulsePicker)
@@ -336,7 +342,7 @@ for k in IteratorMes:
 
     camera.SetEMGain(1)
     FM.ChangeState(0)
-
+    FM_ND.ChangeState(0)
     # Save all the cycle in the folder
     temp = pd.DataFrame(
         {'Exposure Time': t_cyc, 'Power send': p_cyc, 'Power Pulse-picker': p_cyc_calib,'Sync':t_sync})
@@ -348,22 +354,20 @@ print('Experiment Done: beginning loading file')
 
 def LoadData(Folder):
     # Compute wavelength
-    # Compute wavelength
     try:
         temp = pd.read_csv(FolderCalibWavelength, sep='\t', decimal=',')
         print('Reading wavelength calibraton at : {}'.format(FolderCalibWavelength))
-        a = temp.loc[:, 'a'].to_numpy()
-        b = temp.loc[:, 'b'].to_numpy()
+        a = temp.loc[:, 'a'].to_numpy()[0]
+        b = temp.loc[:, 'b'].to_numpy()[0]
     except:
         print('Problem reading wavelength calibraton at : {}\n Taking default value'.format(FolderCalibWavelength))
-        a = 2.354381287460651
-        b = 490.05901104995587
+        a = 2.339
+        b = 470.069 
     PixelNumber = np.linspace(1, 1024, 1024)
     CenterPixel = Spectrograph_Center
     Wavelength = (PixelNumber-b)/a+CenterPixel
 
     Folder = glob.glob(Folder+'/Mes*')
-    print(Folder)
     CycleStore = pd.DataFrame()
     DataTot = []
     for j in range(len(Folder)):
