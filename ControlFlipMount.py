@@ -47,7 +47,8 @@ if __name__ == "__main__":
     FM_ND = FlipMount("37007725",'ND0.5')
     #print(FM.parameterDict)
     InstrumentsPara['FlipMount']=FM.parameterDict #| FM_ND.parameterDict
-    
+    FM_ND.ChangeState(1)
+    FM.ChangeState(1)
     print(FM_ND.GetFlipState())
     #t0=time.time()
     #a.FlipState()

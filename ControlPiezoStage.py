@@ -96,13 +96,15 @@ class PiezoAxisControl:
             
 if __name__ == "__main__":
     piezo= PiezoControl('COM15')
-    x_axis=PiezoAxisControl(piezo,'x',2)
+    x_axis=PiezoAxisControl(piezo,'y',2)
     y_axis=PiezoAxisControl(piezo,'z',2)
-    z_axis=PiezoAxisControl(piezo,'y',2)
+    #z_axis=PiezoAxisControl(piezo,'y',2)
     # Sample plane is xz
     t0=time.time()
-    x_axis.MoveTo(0.1)
-    y_axis.MoveTo(0.1)
+    x_axis.MoveTo(0.01)
+    y_axis.MoveTo(0.01)
+    #y_axis.MoveTo(0.1)
+    #z_axis.MoveTo(0.1)
     t1=time.time()
     print(t1-t0)
     #z_axis.MoveTo(40)
