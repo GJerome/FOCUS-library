@@ -27,23 +27,24 @@ import ControlPiezoStage as Transla
 #############################
 
 
-Nb_Points =8  # Number of position for the piezo
+Nb_Points =42  # Number of position for the piezo
 
-start_x =5
+start_x =9
 end_x = 75
-start_y = 5
+start_y = 9
 end_y = 75
 
 
 Nb_Cycle = 10 # Number of cycle during experiment
 
-StabilityTime_Begin=30# Time for which it will probe at the beginning of the cycle
+StabilityTime_Begin=60# Time for which it will probe at the beginning of the cycle
 StabilityTime_Reset=30# The beam will then be block for this amount of time so that the sample 'reset'
-StabilityTime_End = 30# Time for which it will probe at the end of the cycle
+StabilityTime_End = 60# Time for which it will probe at the end of the cycle
 #The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
 
 PowerProbePulsePicker=500
 EmGainProbe=50
+
 
 
 OnlyOneConfig=True # Set it  to true so that it only probe with one config for Nb_points
@@ -54,7 +55,7 @@ ProbeDiffDivRatio= False #For the probing it set to true The staiblity time can 
 DivRatio=[16,4]# A list containing the different div ratio
 PowerProbe=[1300,600]# A list containing the power to use to probe
 
-Spectrograph_slit=10 # This is just for record not actually setting it up
+Spectrograph_slit=100 # This is just for record not actually setting it up
 Spectrograph_Center=750# This is just for record not actually setting it up
 
 FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
@@ -63,8 +64,15 @@ FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Cali
 #############################
 
 
-x = np.linspace(start_x, end_x, int(np.floor(np.sqrt(Nb_Points))))
-y = np.linspace(start_y, end_y, int(np.ceil(np.sqrt(Nb_Points))))
+if start_x==end_x:
+    x = np.array([start_x])
+    y = np.linspace(start_y, end_y, int(Nb_Points))
+elif start_y==end_y:
+    y = np.array([start_y])
+    x = np.linspace(start_x, end_x, int(Nb_Points))
+else:
+    x = np.linspace(start_x, end_x, int(np.floor(np.sqrt(Nb_Points))))
+    y = np.linspace(start_y, end_y, int(np.ceil(np.sqrt(Nb_Points))))
 
 X, Y = np.meshgrid(x, y)
 Pos = np.stack([X.ravel(), Y.ravel()], axis=-1)
@@ -80,7 +88,7 @@ GeneralPara = {'Experiment name': ' MLTest', 'Nb points':Pos.shape[0],
                'Stability time begin ': StabilityTime_Begin,'Stability time reset':StabilityTime_Reset,'Stability time end ': StabilityTime_End,
                'Probe DiffDivRatio':ProbeDiffDivRatio,'Div ratio probe used':DivRatio,'Power probe div ratio':PowerProbe,
                'Power probe ':PowerProbePulsePicker,'Em Gain probe':EmGainProbe,'Spectrograph slit width':Spectrograph_slit,'Spectrograph center Wavelength':Spectrograph_Center,
-               'Note': 'The SHG unit from Coherent was used'}
+               'Note': 'The SHG unit from Coherent was used and ND05 for probe'}
 
 InstrumentsPara = {}
 ##############################################################
@@ -92,7 +100,7 @@ InstrumentsPara = {}
 ###################
 P = (0, 4.4, 10, 100, 200)  # power in uW
 #Value to reach on the powermeter (0,11,25,240,475)uW
-P_calib = (500, 500,900, 2400, 3500)  # Power from the pp to reach values of P #20MHz
+P_calib = (500, 500,900, 2400, 3400)  # Power from the pp to reach values of P #20MHz
 #P_calib = (500, 1400,2000, 6100, 9300)  # Power from the pp to reach values of P #5MHz
 #P_calib = (500, 1700,2500, 10000, 17500)  # Power from the pp to reach values of P #500kHz
 
@@ -121,7 +129,7 @@ rng = np.random.default_rng()
 
 if OnlyOneConfig==True:
     if OnlyOneConfig_Random==False:
-        FileConfig='./PowerTimeExposureCycle/PowerTimeCycles/Cycle20MHzSwap.csv'
+        FileConfig='./PowerTimeExposureCycle/PowerTimeCycles/ReverseCycle_24-11-29-B4P9-ML-20MHz-lbdexc450-Slit10um-lbds750-OneConfig.csv'
         print('Reading file {} for power/time config '.format(FileConfig))
         # For the moment we assume only one config
         Cycle_info=pd.read_csv(FileConfig)
@@ -262,7 +270,7 @@ for k in IteratorMes:
 #############################
 # Camera setting adjustement
 #############################
-    NbFrameCycle = np.ceil((T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset)/FrameTime)
+    NbFrameCycle = np.ceil((T_tot+StabilityTime_Begin+2*StabilityTime_End+StabilityTime_Reset+5*0.3)/FrameTime)
     camera.SetNumberOfFrame(NbFrameCycle)
     print('Time cycle:{}'.format(t_cyc))
     print('Power cycle:{}'.format(p_cyc))
@@ -278,8 +286,8 @@ for k in IteratorMes:
     print('Probe begin')
     FM_ND.ChangeState(1)
     camera.SetEMGain(EmGainProbe)
-    camera.Acquire() 
     FM.ChangeState(1) # Launch acquisition
+    camera.Acquire() 
     t0=time.time()
 
     if ProbeDiffDivRatio==False:
@@ -305,7 +313,8 @@ for k in IteratorMes:
 
 #############################
 #Power/Time  iteration
-#############################    
+############################# 
+   
     for j in IteratorCyc:
         print('Cycle {}: P={},t={}'.format(IteratorCyc.index,p_cyc[IteratorCyc.index],t_cyc[IteratorCyc.index]))
         if p_cyc[IteratorCyc.index] == 0:
@@ -316,6 +325,7 @@ for k in IteratorMes:
         t_sync[IteratorCyc.index]=time.time()-t0
         time.sleep(t_cyc[IteratorCyc.index])
     IteratorCyc.reset()
+
 
 #############################
 # Stability time at the end 
@@ -371,7 +381,10 @@ def LoadData(Folder):
     CycleStore = pd.DataFrame()
     DataTot = []
     for j in range(len(Folder)):
+        
         File = glob.glob(Folder[j]+'/*[0-9].spe')
+        if len(File)==0:
+            File = glob.glob(Folder[j]+'/*.spe')
         DataRaw = sl.load_from_files(File)
         MetaData = pd.DataFrame(DataRaw.metadata)
         TimeI = MetaData.loc[:, 0].to_numpy()/(1E6)  # Time in ms
