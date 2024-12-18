@@ -27,7 +27,9 @@ else:
 
 import FileControl
 
-
+#############################
+# Custom function
+#############################
 def ParameterRead(ParameterFile):
     ParameterList={}
     with open(ParameterFile,'r') as ParaFile:
@@ -38,6 +40,15 @@ def ParameterRead(ParameterFile):
                 except ValueError:
                     pass
     return ParameterList
+def DistanceTwoPoint(pointA, pointB):
+    return np.sqrt(np.sum((pointA - pointB)**2, axis=0))
+
+def DistanceArray(pointA, pointsB):
+    return np.sqrt(np.sum((pointA - pointsB)**2, axis=1))
+
+#############################
+#
+#############################
 
 class timeTraceRunner:
     def __init__(self, **kwargs):
@@ -55,11 +66,6 @@ class timeTraceRunner:
     #############################
     # Piezo parameter
     #############################
-    def DistanceTwoPoint(pointA, pointB):
-        return np.sqrt(np.sum((pointA - pointB)**2, axis=0))
-
-    def DistanceArray(pointA, pointsB):
-        return np.sqrt(np.sum((pointA - pointsB)**2, axis=1))
     
     def initializePiezo(self, start_x, end_x, start_y, end_y,BeamRadius):
         if start_x==end_x:
@@ -169,6 +175,7 @@ class timeTraceRunner:
     #############################
     def runTimeTrace(self,StabilityTime_Begin,StabilityTime_Reset,StabilityTime_End,
                             PowerProbePulsePicker,EmGainProbe, df_t_cyc, df_p_cyc, df_p_cyc_calib):
+        
         '''The parameters are the following: 
         -df_t_cyc: list of the random time selected for one cycle
         -df_p_cyc: list of the random power selected for one cycle
