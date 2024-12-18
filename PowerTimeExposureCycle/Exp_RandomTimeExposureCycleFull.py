@@ -27,18 +27,18 @@ import ControlPiezoStage as Transla
 #############################
 
 
-Nb_Points =42  # Number of position for the piezo
+Nb_Points =100  # Number of position for the piezo
 
-start_x =9
-end_x = 75
-start_y = 9
+start_x =7
+end_x = 78
+start_y = 7
 end_y = 75
 
 
 Nb_Cycle = 10 # Number of cycle during experiment
 
 StabilityTime_Begin=60# Time for which it will probe at the beginning of the cycle
-StabilityTime_Reset=30# The beam will then be block for this amount of time so that the sample 'reset'
+StabilityTime_Reset=60# The beam will then be block for this amount of time so that the sample 'reset'
 StabilityTime_End = 60# Time for which it will probe at the end of the cycle
 #The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
 
@@ -52,13 +52,15 @@ OnlyOneConfig_Random=False # Set it  to true so that this config is random
 OnlyOneConfig_UseCurentCalib=False #Not implemented yet, Set it  to true if you want it to use the current calibration or False if it should read the power send to the pulse picker from a file
 
 ProbeDiffDivRatio= False #For the probing it set to true The staiblity time can be done at specific rep rate and power
-DivRatio=[16,4]# A list containing the different div ratio
-PowerProbe=[1300,600]# A list containing the power to use to probe
+DivRatio=[40,4]# A list containing the different div ratio
+PowerProbe=[1800,500]# A list containing the power to use to probe
 
-Spectrograph_slit=100 # This is just for record not actually setting it up
+Spectrograph_slit=10 # This is just for record not actually setting it up
 Spectrograph_Center=750# This is just for record not actually setting it up
 
 FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
+BeamRadius=15
+
 #############################
 # Piezo parameter
 #############################
@@ -78,13 +80,40 @@ X, Y = np.meshgrid(x, y)
 Pos = np.stack([X.ravel(), Y.ravel()], axis=-1)
 index=random.sample(range(0, Pos.shape[0]), Pos.shape[0])
 Pos=Pos[index,:]
+Nb_Points=Pos.shape[0]
+
+# Once we randomize a first time we just try to make each next point as far as posible of the other
+def DistanceTwoPoint(pointA, pointB):
+    return np.sqrt(np.sum((pointA - pointB)**2, axis=0))
+
+def DistanceArray(pointA, pointsB):
+    return np.sqrt(np.sum((pointA - pointsB)**2, axis=1))
+
+PosFiltered=np.empty(Pos.shape)
+for index in range(Nb_Points):
+    if index==0:
+        PosFiltered[index,:]=Pos[0,:]
+        Pos=np.delete(Pos,0,0)
+    else:
+        if DistanceTwoPoint(PosFiltered[index-1,:],Pos[0,:])<BeamRadius:            
+            a=np.argmax(DistanceArray(PosFiltered[index-1,:],Pos)>BeamRadius)
+            PosFiltered[index,:]=Pos[a,:]
+            Pos=np.delete(Pos,a,0)
+            if a==0:
+                print('Could not find a point not within the beam avoidance radius.')
+        else:
+            PosFiltered[index,:]=Pos[0,:]
+            Pos=np.delete(Pos,0,0)
+    
+Pos=PosFiltered
+
 try:
     print('Number of Points:{}\nDistance between points:\n\t x ={} \n\t y ={}'.format(Pos.shape[0],
                                                                                   x[1]-x[0], y[1]-y[0]))
 except IndexError:
     print('Number of Points:{}\n'.format(Pos.shape[0]))
 
-GeneralPara = {'Experiment name': ' MLTest', 'Nb points':Pos.shape[0],
+GeneralPara = {'Experiment name': ' ML', 'Nb points':Pos.shape[0],'Beam avoidance radius':BeamRadius,
                'Stability time begin ': StabilityTime_Begin,'Stability time reset':StabilityTime_Reset,'Stability time end ': StabilityTime_End,
                'Probe DiffDivRatio':ProbeDiffDivRatio,'Div ratio probe used':DivRatio,'Power probe div ratio':PowerProbe,
                'Power probe ':PowerProbePulsePicker,'Em Gain probe':EmGainProbe,'Spectrograph slit width':Spectrograph_slit,'Spectrograph center Wavelength':Spectrograph_Center,
@@ -129,7 +158,7 @@ rng = np.random.default_rng()
 
 if OnlyOneConfig==True:
     if OnlyOneConfig_Random==False:
-        FileConfig='./PowerTimeExposureCycle/PowerTimeCycles/ReverseCycle_24-11-29-B4P9-ML-20MHz-lbdexc450-Slit10um-lbds750-OneConfig.csv'
+        FileConfig='./PowerTimeExposureCycle/PowerTimeCycles/Cycle241209-Order2.csv'
         print('Reading file {} for power/time config '.format(FileConfig))
         # For the moment we assume only one config
         Cycle_info=pd.read_csv(FileConfig)
