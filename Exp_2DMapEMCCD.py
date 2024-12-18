@@ -20,26 +20,27 @@ os.system('cls')
 #############################
 # Global parameter
 #############################
-Nb_Points_subgrid=1500
-EMGain=10
+Nb_Points_subgrid=2500
+EMGain=20
 
 # The way it is set up is so that it will iterate thought Divratio and take the associated element in PowerPulsePicker
 #So first element of DivRatio will take the first element of PowerPulsePicker
-DivRatio=16
-PowerPulsePicker=1400
-ProbePower=10# Power of the probe in uW. This will not change anything in the scipt it is just for recording purpose
+DivRatio=4
+PowerPulsePicker=500
+ProbePower=5# Power of the probe in uW. This will not change anything in the scipt it is just for recording purpose
 Spectrograph_slit=10 # This is just for record not actually setting it up
 Spectrograph_Center=750# This is just for record not actually setting it up
+BeamRadius=10
 #############################
 # Piezo parameter
 #############################
 
 #Definition of small grid
 
-start_x =30
-end_x = 70
-start_y = 30
-end_y = 70
+start_x =5
+end_x = 80
+start_y = 5
+end_y = 80
 
 
 x = np.linspace(start_x, end_x, int(np.floor(np.sqrt(Nb_Points_subgrid))))
@@ -50,13 +51,42 @@ Pos = np.stack([X.ravel(), Y.ravel()], axis=-1)
 index=random.sample(range(0, Pos.shape[0]), Pos.shape[0])
 SmallGrid=Pos[index,:]
 
+Nb_Points=SmallGrid.shape[0]
 
-GeneralPos=SmallGrid
+# Once we randomize a first time we just try to make each next point as far as posible of the other
+def DistanceTwoPoint(pointA, pointB):
+    return np.sqrt(np.sum((pointA - pointB)**2, axis=0))
+
+def DistanceArray(pointA, pointsB):
+    return np.sqrt(np.sum((pointA - pointsB)**2, axis=1))
+
+PosFiltered=np.empty(SmallGrid.shape)
+for index in range(Nb_Points):
+    if index==0:
+        PosFiltered[index,:]=SmallGrid[0,:]
+        SmallGrid=np.delete(SmallGrid,0,0)
+    else:
+        if DistanceTwoPoint(PosFiltered[index-1,:],SmallGrid[0,:])<BeamRadius:
+            temp=pd.Series(DistanceArray(PosFiltered[index-1,:],SmallGrid))
+            try:            
+                a=temp.loc[temp>BeamRadius].index[0]
+            except:
+                 print('Could not find a point not within the beam avoidance radius.')
+                 a=0
+            PosFiltered[index,:]=SmallGrid[a,:]
+            SmallGrid=np.delete(SmallGrid,a,0)
+
+        else:
+            PosFiltered[index,:]=SmallGrid[0,:]
+            SmallGrid=np.delete(SmallGrid,0,0)
+    
+GeneralPos=PosFiltered
+
 
 print('Number of Points:{}\n'.format(GeneralPos.shape[0]))
 
 
-GeneralPara = {'Experiment name': ' PLMap', 'Nb points': Nb_Points_subgrid,
+GeneralPara = {'Experiment name': ' PLMap', 'Nb points': Nb_Points_subgrid,'Beam avoidance radius':BeamRadius,
                'Power pulse picker':PowerPulsePicker,'Div ratio':DivRatio,'Probe recorded power before BS [uW]':ProbePower,
                'Spectro center wavelength':Spectrograph_Center,'spectro slit width':Spectrograph_slit,
                'Note': 'The SHG unit from Coherent was used'}
