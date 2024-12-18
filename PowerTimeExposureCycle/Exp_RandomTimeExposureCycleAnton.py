@@ -319,29 +319,79 @@ def generateRandomParameters(Nb_Points, Nb_Cycle):
 
     return df_t_cyc, df_p_cyc, df_p_cyc_calib
 
-def evaluateFitnessValues(FileDir):
+
+
+def evaluateFitnessValues(FileDir,Time_Min,Time_Max):
     # Load experimental data
-    DataTot, CycleStore = LoadDataFromFiles(FileDir)
-
-    # Wavelength filter
-    WavelengthFilter= [col for col in DataTot.columns if 600 <= col <= 900]
-    TimeTraceU=DataTot[WavelengthFilter].sum(axis=1).unstack(level=0)
-    Nb_pts=int(TimeTraceU.shape[1])
-
+    DataTot, CycleStore,Nb_pts = LoadDataFromFiles(FileDir)
+    # Load experimental settings
     Pos, p_cyc, TimeCycle, TimeSync,t_globalSync,StabilityTime_begin,StabilityTime_reset,StabilityTime_end = loadExperimentInfo(CycleStore, Nb_pts,FileDir)
 
-    ts=np.zeros(Nb_pts,dtype=int)
-    ts_b=np.zeros(Nb_pts,dtype=int)
+    M_all=pd.DataFrame(index=range(Nb_pts),columns=['Enhancement','error','S1','S2'])
+
 
     # Compute fitnesses
     fitness_values = np.zeros(Nb_pts)
     for i in range(Nb_pts):
-        temp_df=TimeTraceU.iloc[:,i].dropna()
-        #integrated_int=temp_df.sum()
-        ts[i]=np.argmin(np.abs(temp_df.index-t_globalSync[i]))
-        ts_b[i]=np.argmin(np.abs(temp_df.index-StabilityTime_begin))
+        # We first  compute the time at which the stability time begin and end for each cycles
+        # The way the timing work is the following. The first timestamp  correspond to the time between the first spectra and the second step in a sequence.
+        # So if the StabilityTime_begin=10,StabilityTime_reset=10 and the first step is 1s then the first timestamp will occur at t[0]=21s
+        # All other Timestamp occurs at each step of the cycles
+        ts_end=np.argmin(np.abs(DataTot.index-t_globalSync-StabilityTime_end))
+        ts_begin=np.argmin(np.abs(DataTot.index-StabilityTime_begin))
 
-        fitness_values[i] = temp_df.iloc[ts[i]+10:-10].mean(axis=0)/temp_df.iloc[10:ts_b[i]-10].mean(axis=0) # insert mean intensity of stability region as fitness value of measurement i
+        #We then cut the data accordingly and put them on the samereference frame i.e time between zero and he end of their associated stability time
+        dataFit_End=DataTot.loc[i,:,:].loc[DataTot.loc[i,:,:].index>DataTot.loc[i,:,:].index[ts_end],:]
+        dataFit_End=pd.DataFrame(dataFit_End.to_numpy(),index=(dataFit_End.index[-1]-dataFit_End.index)[::-1],columns=dataFit_End.columns)
+        dataFit_Begin=DataTot.loc[i,:,:].loc[DataTot.loc[i,:,:].index<DataTot.loc[i,:,:].index[ts_begin],:]
+
+        ##########################
+        # Use rolling mean to remove noise 
+        ##########################
+        print('{}/{} Rolling mean computation'.format(i+1,Nb_pts))
+        FitDataResult_End = pd.DataFrame(index=dataFit_End.index,columns=dataFit_End.columns)
+        for j in dataFit_End.index:
+            FitDataResult_End.loc[j,:]=dataFit_End.loc[j,:].rolling(10,min_periods=1).mean()
+        FitDataResult_End['Mes']=i
+        FitAll_End=pd.concat([FitAll_End,FitDataResult_End],axis=0)
+            
+
+        FitDataResult_Begin = pd.DataFrame(index=dataFit_Begin.index,columns=dataFit_Begin.columns)
+        for j in dataFit_Begin.index:
+            FitDataResult_Begin.loc[j,:]=dataFit_Begin.loc[j,:].rolling(10,min_periods=1).mean()
+        FitDataResult_Begin['Mes']=i
+        FitAll_Begin=pd.concat([FitAll_Begin,FitDataResult_Begin],axis=0)
+        
+        ##########################
+        # Interpolate to the same timescale
+        ##########################
+
+        print('{}/{} Interpolation to the same timebase'.format(i+1,Nb_pts))
+        if (dataFit_End.index[-1]-dataFit_End.index[0])>(dataFit_Begin.index[-1]-dataFit_Begin.index[0]):
+            time_int=np.abs(dataFit_Begin.index-dataFit_Begin.index[-1])[::-1]
+            dataTemp_Interp=pd.DataFrame(FitDataResult_End.iloc[:,:-2],dtype='float64')
+            dataFit_interp2=pd.DataFrame(np.interp(time_int,
+                                    dataTemp_Interp.loc[(dataTemp_Interp.index)<=time_int[-1],:].index,
+                                    dataTemp_Interp.loc[dataTemp_Interp.index<=time_int[-1],:].max(axis=1)),index=time_int)
+            dataFit_interp1=pd.DataFrame(FitDataResult_Begin.max(axis=1).to_numpy(),index=time_int)
+        else:
+            time_int=np.abs(dataFit_End.index-dataFit_End.index[-1])[::-1]
+            dataTemp_Interp=pd.DataFrame(FitDataResult_Begin.iloc[:,:-2],dtype='float64')
+            dataFit_interp1=np.interp(time_int,
+                                    dataTemp_Interp.loc[dataTemp_Interp.index<=time_int[-1],:].index,
+                                    dataTemp_Interp.loc[dataTemp_Interp.index<=time_int[-1],:].max(axis=1))
+            dataFit_interp2=pd.DataFrame(FitDataResult_Begin.max(axis=1).to_numpy(),index=time_int)
+        
+        M_all.loc[i,'EnhancementTime']=[dataFit_interp2.div(dataFit_interp1,axis=0)]
+        M_all.loc[i,'S1']=[dataFit_interp1]
+        M_all.loc[i,'S2']=[dataFit_interp2]
+        M_all.loc[i,'error']=dataFit_interp2.div(dataFit_interp1).std(axis=0).to_numpy()
+
+
+
+        fitness_values[i] =(M_all.loc[j,'S2'][0].loc[(M_all.loc[j,'S2'][0].index>Time_Min) & (M_all.loc[j,'S2'][0].index<Time_Max),0]
+                            /M_all.loc[j,'S1'][0].loc[(M_all.loc[j,'S1'][0].index>Time_Min) & (M_all.loc[j,'S1'][0].index<Time_Max),0]).mean()
+     
     print("# FITNESS VALUES #")
     print(fitness_values)
     return fitness_values
@@ -356,20 +406,12 @@ def loadExperimentInfo(CycleStore, Nb_pts,FileDir):
     # Reading global parameters
     #############################
     para=ParameterRead(FileDir+'/ExperimentParameter.txt')
-    try:
-        StabilityTime_begin=float(para['Stability time begin '])
-        StabilityTime_reset=float(para['Stability time reset'])
-        StabilityTime_end=float(para['Stability time end '])
-        if para['Probe DiffDivRatio']=='True':
-            FrequencyProbe=80/pd.DataFrame((para['Div ratio probe used'][1:-1].split(',')),dtype=float)
-        elif para['Probe DiffDivRatio']=='False':
-            FrequencyProbe=pd.Series((para['Repetition rate'].split('.')[0]),dtype=float)/1E6
-        Nb_ProbeFreq=len(FrequencyProbe)
-    except:
-        print('Could not read parameters, please check parameter file')
-        StabilityTime_begin=10
-        StabilityTime_reset=30
-        StabilityTime_end=30
+    
+    # We asssume that we probe with a single frequency
+    StabilityTime_begin=float(para['Stability time begin '])
+    StabilityTime_reset=float(para['Stability time reset'])
+    StabilityTime_end=float(para['Stability time end '])
+ 
 
     #############################
     # Reading cycle info
@@ -397,8 +439,6 @@ def loadExperimentInfo(CycleStore, Nb_pts,FileDir):
     return Pos, p_cyc, TimeCycle, TimeSync,t_globalSync,StabilityTime_begin,StabilityTime_reset,StabilityTime_end
     
 def LoadDataFromFiles(FileDir,FolderCalibWavelength,WaveCenter):
-    ## We first need to generate the datafile 
-        # Compute wavelength
     try:
         temp = pd.read_csv(FolderCalibWavelength, sep='\t', decimal=',')
         print('Reading wavelength calibraton at : {}'.format(FolderCalibWavelength))
@@ -433,54 +473,8 @@ def LoadDataFromFiles(FileDir,FolderCalibWavelength,WaveCenter):
         CycleStore = pd.concat([CycleStore, FileCycle], axis=1)
     
     DataTot = pd.concat(DataTot).set_index(['Mes', 'Time'])
-    print('Finished loading, beginning compression')
-
-    DataTot.to_pickle("./TimeTraceFull.pkl", compression='xz')
-    CycleStore.to_csv('./BatchCycle.csv', index=False)
-    
-  
-    FileNameTimeTraceFull=FileDir+'/TimeTraceFull.pkl'
-    FileNameCycle=FileDir+'/BatchCycle.csv'
-    #print("Loading data from", FileNameTimeTraceFull, "and", FileNameCycle)
-    #TimeTraceFull=pd.read_pickle(FileNameTimeTraceFull,compression='xz')
-    #Cycle_info=pd.read_csv(FileNameCycle)
-    print("Data loaded")
-    return DataTot, CycleStore
-
-# from DataScrapperV2
-def LoadDataFromMeasurements():
-    # Compute wavelength
-    a=2.339373103584057
-    b=470.06854115746376
-    PixelNumber = np.linspace(1, 1024, 1024)
-    CenterPixel = 700
-    Wavelength = (PixelNumber-b)/a+CenterPixel
-
-    Folder = glob.glob('./Mes*')
-    CycleStore = pd.DataFrame()
-    DataTot = []
-    for j in range(len(Folder)):
-        File = glob.glob(Folder[j]+'/*spe')
-        DataRaw = sl.load_from_files(File)
-        MetaData = pd.DataFrame(DataRaw.metadata)
-        TimeI = MetaData.loc[:, 0].to_numpy()/(1E6)  # Time in ms
-
-        DataTotTemp = pd.DataFrame(np.squeeze(
-            DataRaw.data[:][:]), columns=Wavelength)
-        DataTotTemp['Mes'] = j
-        DataTotTemp['Time'] = TimeI
-        DataTot.append(DataTotTemp)
-
-        FileCycle = pd.read_csv(Folder[j]+'/Cycle.csv')
-        CycleStore = pd.concat([CycleStore, FileCycle], axis=1)
-
-    DataTot = pd.concat(DataTot).set_index(['Mes', 'Time'])
-
-    #Data.to_pickle("./TimeTraceFull.pkl", compression='xz')
-    #CycleStore.to_csv('./BatchCycle.csv', index=False)
-
-    return DataTot, CycleStore
-
+    print("Dataset loaded")
+    return DataTot, CycleStore, len(Folder)
 
 if __name__ == '__main__':
 
