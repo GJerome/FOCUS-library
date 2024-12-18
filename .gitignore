@@ -9,6 +9,7 @@ PowerTimeExposureCycle/PowerTimeCycles/
 # Data file to ignore
 *.pkl
 DataAnalysis/Misc_LaserParam.ipynb
+DataAnalysis/PlotScrappedDataV5.ipynb
 TestList.py
 Parameter*
 parameter*
