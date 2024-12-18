@@ -46,8 +46,8 @@ class timeTraceRunner:
             raise ValueError('Parameters must contain the number of points [\'Nb_points\']')
         self.Nb_Points = GeneralPara['Nb_points']
 
-    def initialize(self, start_x, end_x, start_y, end_y, FileDir):
-        self.initializePiezo(start_x, end_x, start_y, end_y)
+    def initialize(self, start_x, end_x, start_y, end_y, BeamRadius,FileDir):
+        self.initializePiezo(start_x, end_x, start_y, end_y,BeamRadius)
         self.initializeInstruments()
         self.initializeConex()
         self.initializeOutputDirectory(FileDir)
@@ -55,15 +55,46 @@ class timeTraceRunner:
     #############################
     # Piezo parameter
     #############################
-    def initializePiezo(self, start_x, end_x, start_y, end_y):
-        x = np.linspace(start_x, end_x, int(np.floor(np.sqrt(self.Nb_Points))))
-        y = np.linspace(start_y, end_y, int(np.ceil(np.sqrt(self.Nb_Points))))
+    def DistanceTwoPoint(pointA, pointB):
+        return np.sqrt(np.sum((pointA - pointB)**2, axis=0))
+
+    def DistanceArray(pointA, pointsB):
+        return np.sqrt(np.sum((pointA - pointsB)**2, axis=1))
+    
+    def initializePiezo(self, start_x, end_x, start_y, end_y,BeamRadius):
+        if start_x==end_x:
+            x = np.array([start_x])
+            y = np.linspace(start_y, end_y, int(Nb_Points))
+        elif start_y==end_y:
+            y = np.array([start_y])
+            x = np.linspace(start_x, end_x, int(Nb_Points))
+        else:
+            x = np.linspace(start_x, end_x, int(np.floor(np.sqrt(Nb_Points))))
+            y = np.linspace(start_y, end_y, int(np.ceil(np.sqrt(Nb_Points))))
         X, Y = np.meshgrid(x, y)
         self.Pos = np.stack([X.ravel(), Y.ravel()], axis=-1)
         index=random.sample(range(0, self.Pos.shape[0]), self.Pos.shape[0])
         self.Pos=self.Pos[index,:]
         self.GeneralPara['Nb_points']=self.Pos.shape[0]
         self.Nb_Points = self.Pos.shape[0]
+
+        PosFiltered=np.empty(self.Pos.shape)
+        for index in range(self.Nb_Points):
+            if index==0:
+                PosFiltered[index,:]=self.Pos[0,:]
+                self.Pos=np.delete(self.Pos,0,0)
+            else:
+                if self.DistanceTwoPoint(PosFiltered[index-1,:],self.Pos[0,:])<BeamRadius:            
+                    a=np.argmax(self.DistanceArray(PosFiltered[index-1,:],self.Pos)>BeamRadius)
+                    PosFiltered[index,:]=self.Pos[a,:]
+                    self.Pos=np.delete(self.Pos,a,0)
+                    if a==0:
+                        print('Could not find a point not within the beam avoidance radius.')
+                else:
+                    PosFiltered[index,:]=self.Pos[0,:]
+                    self.Pos=np.delete(self.Pos,0,0)
+    
+        self.Pos=PosFiltered
         try:
             print('Number of Points:{}-{}\nDistance between points:\n\t x ={} \n\t y ={}'.format(self.Nb_Points,self.Pos.shape[0],x[1]-x[0], y[1]-y[0]))
         except IndexError:
@@ -468,6 +499,8 @@ if __name__ == '__main__':
     Nb_Cycle = 10  # Number of cycle during experiment
     DistancePts = 10
 
+    BeamRadius=10 # Minimum distance betweensuccesive point in um
+
     StabilityTime_Begin=20# Time for which it will probe at the beginning of the cycle
     StabilityTime_Reset=30# The beam will then be block for this amount of time so that the sample 'reset'
     StabilityTime_End = 30# Time for which it will probe at the end of the cycle
@@ -480,11 +513,10 @@ if __name__ == '__main__':
 
     FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
 
-    GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points':Nb_Points,
-               'Stability time begin ': StabilityTime_Begin,'Stability time reset':StabilityTime_Reset,
-               'Stability time end ': StabilityTime_End,
+    GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points':Nb_Points,'Beam avoidance radius':BeamRadius,
+               'Stability time begin ': StabilityTime_Begin,'Stability time reset':StabilityTime_Reset,'Stability time end ': StabilityTime_End,
                'Power probe ':PowerProbePulsePicker,'Em Gain probe':EmGainProbe,'Spectrograph slit width':Spectrograph_slit,'Spectrograph center Wavelength':Spectrograph_Center,
-               'Note': 'The SHG unit from Coherent was used'}
+               'Note': 'The SHG unit from Coherent was used and ND05 for probe'}
 
     FileDir = '/export/scratch2/constellation-data/EnhancePerov/output-dummy/'
 
@@ -500,7 +532,7 @@ if __name__ == '__main__':
     #Initialisation of the Timetrace object
     ####
     runner = timeTraceRunner(**GeneralPara) # This object allow to run the timetrace, load the data, ...
-    runner.initialize(start_x, end_x, start_y, end_y, FileDir)
+    runner.initialize(start_x, end_x, start_y, end_y,BeamRadius, FileDir)
 
     
     
