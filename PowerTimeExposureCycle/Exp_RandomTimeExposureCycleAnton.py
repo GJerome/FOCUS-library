@@ -398,6 +398,9 @@ def evaluateFitnessValues(FileDir,Time_Min,Time_Max):
 
         fitness_values[i] =(M_all.loc[j,'S2'][0].loc[(M_all.loc[j,'S2'][0].index>Time_Min) & (M_all.loc[j,'S2'][0].index<Time_Max),0]
                             /M_all.loc[j,'S1'][0].loc[(M_all.loc[j,'S1'][0].index>Time_Min) & (M_all.loc[j,'S1'][0].index<Time_Max),0]).mean()
+
+        #fitness_values[i] =(M_all.loc[j,'S2'][0].loc[(M_all.loc[j,'S2'][0].index>Time_Min) & (M_all.loc[j,'S2'][0].index<Time_Max),0]
+        #                    -M_all.loc[j,'S1'][0].loc[(M_all.loc[j,'S1'][0].index>Time_Min) & (M_all.loc[j,'S1'][0].index<Time_Max),0]).mean()
      
     print("# FITNESS VALUES #")
     print(fitness_values)
