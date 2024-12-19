@@ -90,8 +90,8 @@ class timeTraceRunner:
                 PosFiltered[index,:]=self.Pos[0,:]
                 self.Pos=np.delete(self.Pos,0,0)
             else:
-                if self.DistanceTwoPoint(PosFiltered[index-1,:],self.Pos[0,:])<BeamRadius:            
-                    a=np.argmax(self.DistanceArray(PosFiltered[index-1,:],self.Pos)>BeamRadius)
+                if DistanceTwoPoint(PosFiltered[index-1,:],self.Pos[0,:])<BeamRadius:            
+                    a=np.argmax(DistanceArray(PosFiltered[index-1,:],self.Pos)>BeamRadius)
                     PosFiltered[index,:]=self.Pos[a,:]
                     self.Pos=np.delete(self.Pos,a,0)
                     if a==0:
@@ -138,6 +138,9 @@ class timeTraceRunner:
         #############################
         # Initialisation of the shutter
         #############################
+        self.FM = shutter.FlipMount("37007726",'Shutter')
+        self.FM_ND = shutter.FlipMount("37007725",'ND05') # state 1 is the one with the ND
+        self.InstrumentsPara['FlipMount']=self.FM.parameterDict | self.FM_ND.parameterDict
         self.FM = shutter.FlipMount("37007726")
         self.InstrumentsPara['FlipMount']=self.FM.parameterDict
         print('Initialised Flip mount')
@@ -223,8 +226,10 @@ class timeTraceRunner:
             #Create timing parameter
             t_sync=np.zeros(len(t_cyc))
             self.camera.SetEMGain(EmGainProbe)
-            self.camera.Acquire()# Launch acquisition
+            self.FM_ND.ChangeState(1)
             self.FM.ChangeState(1)  
+            self.camera.Acquire()# Launch acquisition
+            
             t0=time.time()
 
             ###############
@@ -240,6 +245,7 @@ class timeTraceRunner:
             ###############
             print('Reset time')
             self.FM.ChangeState(0)
+            self.FM_ND.ChangeState(0)
             time.sleep(StabilityTime_Reset)
             self.FM.ChangeState(1)
 
@@ -264,8 +270,9 @@ class timeTraceRunner:
             #############################
 
             
-            print('Stability Time')
+            print('Stability Time end')
             self.FM.ChangeState(1)
+            self.FM_ND.ChangeState(1)
             self.pp.SetPower(PowerProbePulsePicker)
             self.camera.SetEMGain(EmGainProbe)
             self.camera.WaitForAcq()
@@ -273,7 +280,7 @@ class timeTraceRunner:
             #############################
             # Acq finished
             #############################
-
+            self.FM_ND.ChangeState(0)
             self.FM.ChangeState(0)
             self.camera.SetEMGain(1)
 
@@ -298,16 +305,17 @@ def generateRandomParameters(Nb_Points, Nb_Cycle):
     ###################
     # Proba density function Power
     ###################
-    P = (0, 4.4, 10, 100, 800)  # power in uW
-    P_calib = (500, 500,800, 2300, 6800)  # Power from the pp to reach values of P
-    p1 = [0.3, 0.175, 0.175, 0.175, 0.175]
+    P = (0, 4.4, 10, 100, 200)  # power in uW
+    #Value to reach on the powermeter (0,11,25,240,475)uW
+    P_calib = (500, 500,900, 2400, 3400)  # Power from the pp to reach values of P #20MHz
+    p1 = [0.3, 0.133, 0.133, 0.134, 0.3]
     ProbaP = p1
 
     ###################
     # Proba density function Time
     ###################
-    t = (0.1, 1, 10, 100)  # time
-    p1 = [0.3, 0.23, 0.23, 0.24]
+    t = (0.1, 1, 10, 30)  # time
+    p1 = [0.23, 0.23, 0.30, 0.24]
     ProbaT = p1
 
     df_t_cyc = pd.DataFrame()
@@ -328,9 +336,9 @@ def generateRandomParameters(Nb_Points, Nb_Cycle):
 
 
 
-def evaluateFitnessValues(FileDir,Time_Min,Time_Max):
+def evaluateFitnessValues(FileDir,FolderCalibWavelength,Spectrograph_Center,Time_Min,Time_Max,Observable):
     # Load experimental data
-    DataTot, CycleStore,Nb_pts = LoadDataFromFiles(FileDir)
+    DataTot, CycleStore,Nb_pts = LoadDataFromFiles(FileDir,FolderCalibWavelength,Spectrograph_Center)
     # Load experimental settings
     Pos, p_cyc, TimeCycle, TimeSync,t_globalSync,StabilityTime_begin,StabilityTime_reset,StabilityTime_end = loadExperimentInfo(CycleStore, Nb_pts,FileDir)
 
@@ -395,12 +403,12 @@ def evaluateFitnessValues(FileDir,Time_Min,Time_Max):
         M_all.loc[i,'error']=dataFit_interp2.div(dataFit_interp1).std(axis=0).to_numpy()
 
 
-
-        fitness_values[i] =(M_all.loc[j,'S2'][0].loc[(M_all.loc[j,'S2'][0].index>Time_Min) & (M_all.loc[j,'S2'][0].index<Time_Max),0]
+        if Observable=='M2':
+            fitness_values[i] =(M_all.loc[j,'S2'][0].loc[(M_all.loc[j,'S2'][0].index>Time_Min) & (M_all.loc[j,'S2'][0].index<Time_Max),0]
                             /M_all.loc[j,'S1'][0].loc[(M_all.loc[j,'S1'][0].index>Time_Min) & (M_all.loc[j,'S1'][0].index<Time_Max),0]).mean()
-
-        #fitness_values[i] =(M_all.loc[j,'S2'][0].loc[(M_all.loc[j,'S2'][0].index>Time_Min) & (M_all.loc[j,'S2'][0].index<Time_Max),0]
-        #                    -M_all.loc[j,'S1'][0].loc[(M_all.loc[j,'S1'][0].index>Time_Min) & (M_all.loc[j,'S1'][0].index<Time_Max),0]).mean()
+        elif Observable=='M1':
+            fitness_values[i] =(M_all.loc[j,'S2'][0].loc[(M_all.loc[j,'S2'][0].index>Time_Min) & (M_all.loc[j,'S2'][0].index<Time_Max),0]
+                            -M_all.loc[j,'S1'][0].loc[(M_all.loc[j,'S1'][0].index>Time_Min) & (M_all.loc[j,'S1'][0].index<Time_Max),0]).mean()
      
     print("# FITNESS VALUES #")
     print(fitness_values)
@@ -499,24 +507,26 @@ if __name__ == '__main__':
     #############################
     # TimeTrace parameters
     #############################
-    Nb_Points = 50  # Number of position for the piezo
+    Nb_Points = 100  # Number of position for the piezo
     Nb_Cycle = 10  # Number of cycle during experiment
-    DistancePts = 10
+
+    
 
     BeamRadius=10 # Minimum distance betweensuccesive point in um
 
-    StabilityTime_Begin=20# Time for which it will probe at the beginning of the cycle
-    StabilityTime_Reset=30# The beam will then be block for this amount of time so that the sample 'reset'
-    StabilityTime_End = 30# Time for which it will probe at the end of the cycle
+    StabilityTime_Begin=60# Time for which it will probe at the beginning of the cycle
+    StabilityTime_Reset=60# The beam will then be block for this amount of time so that the sample 'reset'
+    StabilityTime_End = 60# Time for which it will probe at the end of the cycle
     #The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
     PowerProbePulsePicker=500
-    EmGainProbe=10
+    EmGainProbe=20
 
-    Spectrograph_slit=10 # This is just for record not actually setting it up
+    Spectrograph_slit=100 # This is just for record not actually setting it up
     Spectrograph_Center=750# This is just for record not actually setting it up
 
     FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
-
+    Time_Min=40
+    Time_Max=50
     GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points':Nb_Points,'Beam avoidance radius':BeamRadius,
                'Stability time begin ': StabilityTime_Begin,'Stability time reset':StabilityTime_Reset,'Stability time end ': StabilityTime_End,
                'Power probe ':PowerProbePulsePicker,'Em Gain probe':EmGainProbe,'Spectrograph slit width':Spectrograph_slit,'Spectrograph center Wavelength':Spectrograph_Center,
@@ -527,10 +537,10 @@ if __name__ == '__main__':
     df_t_cyc, df_p_cyc, df_p_cyc_calib = generateRandomParameters(Nb_Points, Nb_Cycle) #generate random initial population
     
     
-    start_x = 5
-    end_x = 80
-    start_y = 5
-    end_y = 80    
+    start_x = 3
+    end_x = 78
+    start_y = 3
+    end_y = 78    
 
     ####
     #Initialisation of the Timetrace object
@@ -552,7 +562,7 @@ if __name__ == '__main__':
         
         # calculate fitness values
         FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
-        fitness_values = evaluateFitnessValues(runner.DirectoryPath,FolderCalibWavelength,Spectrograph_Center)
+        fitness_values = evaluateFitnessValues(runner.DirectoryPath,FolderCalibWavelength,Spectrograph_Center,Time_Min,Time_Max,'M2')
        
         # update population
         df_t_cyc, df_p_cyc, df_p_cyc_calib = generateNewSolutions(df_t_cyc, df_p_cyc, df_p_cyc_calib, fitness_values)
