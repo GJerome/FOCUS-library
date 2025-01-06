@@ -15,6 +15,7 @@ import spe_loader as sl
 
 
 import ControlFlipMount as shutter
+import ControlThorlabsShutter as ThorlabsShutter
 import ControlLaser as las
 import ControlPulsePicker as picker
 import ControlEMCCD as EMCCD
@@ -27,7 +28,7 @@ import ControlPiezoStage as Transla
 #############################
 
 
-Nb_Points =100  # Number of position for the piezo
+Nb_Points =6  # Number of position for the piezo
 
 start_x =7
 end_x = 78
@@ -129,7 +130,7 @@ InstrumentsPara = {}
 ###################
 P = (0, 4.4, 10, 100, 200)  # power in uW
 #Value to reach on the powermeter (0,11,25,240,475)uW
-P_calib = (500, 500,900, 2400, 3400)  # Power from the pp to reach values of P #20MHz
+P_calib = (500, 500,900, 2300, 3300)  # Power from the pp to reach values of P #20MHz
 #P_calib = (500, 1400,2000, 6100, 9300)  # Power from the pp to reach values of P #5MHz
 #P_calib = (500, 1700,2500, 10000, 17500)  # Power from the pp to reach values of P #500kHz
 
@@ -158,7 +159,7 @@ rng = np.random.default_rng()
 
 if OnlyOneConfig==True:
     if OnlyOneConfig_Random==False:
-        FileConfig='./PowerTimeExposureCycle/PowerTimeCycles/Cycle241209-Order2.csv'
+        FileConfig='./PowerTimeExposureCycle/PowerTimeCycles/Cycle24-12-10-B4P9-ML-20MHz-lbdexc450-Slit10um-lbds750-OneConfig-Reverse.csv'
         print('Reading file {} for power/time config '.format(FileConfig))
         # For the moment we assume only one config
         Cycle_info=pd.read_csv(FileConfig)
@@ -230,7 +231,7 @@ print('Initialised EMCCD')
 # Initialisation of the shutter
 #############################
 
-FM = shutter.FlipMount("37007726",'Shutter')
+FM = ThorlabsShutter.ShutterControl("68800883",'Shutter')
 FM_ND = shutter.FlipMount("37007725",'ND05') # state 1 is the one with the ND
 InstrumentsPara['FlipMount']=FM.parameterDict | FM_ND.parameterDict
 print('Initialised Flip mount')
@@ -254,8 +255,9 @@ IteratorMes = np.nditer(MesNumber, flags=['f_index'])
 CycNumber = np.linspace(0, Nb_Cycle, Nb_Cycle, endpoint=False)
 IteratorCyc = np.nditer(CycNumber, flags=['f_index'])
 
+FM.SetClose()
 Laser.SetStatusShutterTunable(1)
-FM.ChangeState(0)
+
 
 
 for k in IteratorMes:
@@ -315,7 +317,7 @@ for k in IteratorMes:
     print('Probe begin')
     FM_ND.ChangeState(1)
     camera.SetEMGain(EmGainProbe)
-    FM.ChangeState(1) # Launch acquisition
+    FM.SetOpen() # Launch acquisition
     camera.Acquire() 
     t0=time.time()
 
@@ -335,10 +337,10 @@ for k in IteratorMes:
 # Reset time
 #############################
     print('Reset time')
-    FM.ChangeState(0)
+    FM.SetClose()
     FM_ND.ChangeState(0)
     time.sleep(StabilityTime_Reset)
-    FM.ChangeState(1)
+    FM.SetOpen()
 
 #############################
 #Power/Time  iteration
@@ -347,9 +349,9 @@ for k in IteratorMes:
     for j in IteratorCyc:
         print('Cycle {}: P={},t={}'.format(IteratorCyc.index,p_cyc[IteratorCyc.index],t_cyc[IteratorCyc.index]))
         if p_cyc[IteratorCyc.index] == 0:
-            FM.ChangeState(0)
+            FM.SetClose()
         elif p_cyc[IteratorCyc.index] != 0:
-            FM.ChangeState(1)
+            FM.SetOpen()
             pp.SetPower(p_cyc_calib[IteratorCyc.index])
         t_sync[IteratorCyc.index]=time.time()-t0
         time.sleep(t_cyc[IteratorCyc.index])
@@ -361,7 +363,7 @@ for k in IteratorMes:
 #############################
 
     FM_ND.ChangeState(1)
-    FM.ChangeState(1)
+    FM.SetOpen()
     
     camera.SetEMGain(EmGainProbe)
     if ProbeDiffDivRatio==False:
@@ -380,7 +382,7 @@ for k in IteratorMes:
 #############################
 
     camera.SetEMGain(1)
-    FM.ChangeState(0)
+    FM.SetClose()
     FM_ND.ChangeState(0)
     # Save all the cycle in the folder
     temp = pd.DataFrame(
