@@ -30,20 +30,20 @@ import ControlPiezoStage as Transla
 
 Nb_Points =6  # Number of position for the piezo
 
-start_x =7
-end_x = 78
-start_y = 7
+start_x =40
+end_x = 75
+start_y = 40
 end_y = 75
 
 
-Nb_Cycle = 10 # Number of cycle during experiment
+Nb_Cycle = 6 # Number of cycle during experiment
 
 StabilityTime_Begin=60# Time for which it will probe at the beginning of the cycle
 StabilityTime_Reset=60# The beam will then be block for this amount of time so that the sample 'reset'
 StabilityTime_End = 60# Time for which it will probe at the end of the cycle
 #The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
 
-PowerProbePulsePicker=500
+PowerProbePulsePicker=1600
 EmGainProbe=50
 
 
@@ -116,9 +116,12 @@ except IndexError:
 
 GeneralPara = {'Experiment name': ' ML', 'Nb points':Pos.shape[0],'Beam avoidance radius':BeamRadius,
                'Stability time begin ': StabilityTime_Begin,'Stability time reset':StabilityTime_Reset,'Stability time end ': StabilityTime_End,
-               'Probe DiffDivRatio':ProbeDiffDivRatio,'Div ratio probe used':DivRatio,'Power probe div ratio':PowerProbe,
-               'Power probe ':PowerProbePulsePicker,'Em Gain probe':EmGainProbe,'Spectrograph slit width':Spectrograph_slit,'Spectrograph center Wavelength':Spectrograph_Center,
-               'Note': 'The SHG unit from Coherent was used and ND05 for probe'}
+               'Power probe ':PowerProbePulsePicker,'Em Gain probe':EmGainProbe,
+               'Spectrograph slit width':Spectrograph_slit,'Spectrograph center Wavelength':Spectrograph_Center}
+if ProbeDiffDivRatio==True:               
+    GeneralPara.update({'Probe DiffDivRatio':ProbeDiffDivRatio,'Div ratio probe used':DivRatio,'Power probe div ratio':PowerProbe})
+               
+GeneralPara.update({'Note': 'The SHG unit from Coherent was used and ND05 for probe'})
 
 InstrumentsPara = {}
 ##############################################################
@@ -130,12 +133,15 @@ InstrumentsPara = {}
 ###################
 P = (0, 4.4, 10, 100, 200)  # power in uW
 #Value to reach on the powermeter (0,11,25,240,475)uW
-P_calib = (500, 500,900, 2300, 3300)  # Power from the pp to reach values of P #20MHz
+P_calib = (500, 500,900, 2300, 3200)  # Power from the pp to reach values of P #20MHz
+#P_calib = (500, 1600,2200, 7900, 15700) # Power from the pp to reach values of P #2.58MHz
+#P_calib = (500, 700,1200, 3600, 5600) # Power from the pp to reach values of P #2.58MHz same peak power
+
 #P_calib = (500, 1400,2000, 6100, 9300)  # Power from the pp to reach values of P #5MHz
 #P_calib = (500, 1700,2500, 10000, 17500)  # Power from the pp to reach values of P #500kHz
 
 p0 = [0.2, 0.2, 0.2, 0.2, 0.2]
-p1 = [0.3, 0.175, 0.175, 0.175, 0.175]
+p1 = [0.3, 0.12, 0.12, 0.16, 0.3]
 ProbaP = p1
 
 GeneralPara['Power cycle']=P
@@ -147,10 +153,10 @@ GeneralPara['Probability table power']=ProbaP
 t = (0.1, 1, 10, 100)  # time
 
 p0 = [0.25, 0.25, 0.25, 0.25]
-p1 = [0.25, 0.25, 0.25, 0.25]
+p1 = [0.2, 0.3, 0.3, 0.2]
 ProbaT = p1
 
-GeneralPara['Time cycle']=P
+GeneralPara['Time cycle']=t
 GeneralPara['Probability table time']=ProbaT
 ###################
 # RNG declaration
@@ -159,7 +165,7 @@ rng = np.random.default_rng()
 
 if OnlyOneConfig==True:
     if OnlyOneConfig_Random==False:
-        FileConfig='./PowerTimeExposureCycle/PowerTimeCycles/Cycle24-12-10-B4P9-ML-20MHz-lbdexc450-Slit10um-lbds750-OneConfig-Reverse.csv'
+        FileConfig='./PowerTimeExposureCycle/PowerTimeCycles/BestCycle_25-01-07-B4P9-ML-2.58MHz-lbdexc450-Slit10um-lbds750-RandomConfigDataset.csv'
         print('Reading file {} for power/time config '.format(FileConfig))
         # For the moment we assume only one config
         Cycle_info=pd.read_csv(FileConfig)
@@ -301,12 +307,12 @@ for k in IteratorMes:
 #############################
 # Camera setting adjustement
 #############################
-    NbFrameCycle = np.ceil((T_tot+StabilityTime_Begin+2*StabilityTime_End+StabilityTime_Reset+5*0.3)/FrameTime)
+    NbFrameCycle = np.ceil((T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset+5)/FrameTime)
     camera.SetNumberOfFrame(NbFrameCycle)
     print('Time cycle:{}'.format(t_cyc))
     print('Power cycle:{}'.format(p_cyc))
     print('Real Power cycle:{}'.format(p_cyc_calib))
-    print('Total time={}'.format(T_tot+T_tot+StabilityTime_Begin+StabilityTime_End))
+    print('Total time={}'.format(T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset))
 
     
     t_sync=np.zeros(len(t_cyc)) #Create timing parameter
@@ -357,7 +363,7 @@ for k in IteratorMes:
         time.sleep(t_cyc[IteratorCyc.index])
     IteratorCyc.reset()
 
-
+    print('Probe end')
 #############################
 # Stability time at the end 
 #############################
