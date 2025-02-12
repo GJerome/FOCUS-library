@@ -177,18 +177,21 @@ class timeTraceRunner:
     # TimeTrace loop
     #############################
     def runTimeTrace(self,StabilityTime_Begin,StabilityTime_Reset,StabilityTime_End,
-                            PowerProbePulsePicker,EmGainProbe, df_t_cyc, df_p_cyc, df_p_cyc_calib):
+                            PowerProbePulsePicker,EmGainProbe, sample_parameters):
         
         '''The parameters are the following: 
         -df_t_cyc: list of the random time selected for one cycle
         -df_p_cyc: list of the random power selected for one cycle
         -df_p_cyc_calib: list of the random power selected for one cycle send to the pulse picker.'''
 
-        MesNumber = np.linspace(0, self.Nb_Points, self.Nb_Points, endpoint=False)
+        if USE_DUMMY:
+            return
+
+        MesNumber = range(self.Nb_Points)
         IteratorMes = np.nditer(MesNumber, flags=['f_index'])
 
-        Nb_Cycle = len(df_t_cyc[0])
-        CycNumber = np.linspace(0, Nb_Cycle, Nb_Cycle, endpoint=False)
+        Nb_Cycle = len(sample_parameters[0]['t_cyc'])
+        CycNumber = range(Nb_Cycle)
         IteratorCyc = np.nditer(CycNumber, flags=['f_index'])
 
         self.Laser.SetStatusShutterTunable(1)
@@ -208,9 +211,9 @@ class timeTraceRunner:
             self.y_axis.MoveTo(self.Pos[IteratorMes.index, 1])
 
             # Intensity/Power Cycles
-            t_cyc = df_t_cyc[k]
-            p_cyc = df_p_cyc[k]
-            p_cyc_calib = df_p_cyc_calib[k]
+            t_cyc = sample_parameters[MesNumber[IteratorMes.index]]['t_cyc']
+            p_cyc = sample_parameters[MesNumber[IteratorMes.index]]['p_cyc']
+            p_cyc_calib = sample_parameters[k]['p_cyc_calib']
             assert(len(t_cyc) == len(p_cyc) == len(p_cyc_calib) == Nb_Cycle)
 
             T_tot = np.sum(t_cyc)
@@ -307,7 +310,7 @@ def generateRandomParameters(Nb_Points, Nb_Cycle):
     ###################
     P = (0, 4.4, 10, 100, 200)  # power in uW
     #Value to reach on the powermeter (0,11,25,240,475)uW
-    P_calib = (500, 500,900, 2400, 3400)  # Power from the pp to reach values of P #20MHz
+    P_calib = (500, 500, 900, 2400, 3400)  # Power from the pp to reach values of P #20MHz
     p1 = [0.3, 0.133, 0.133, 0.134, 0.3]
     ProbaP = p1
 
@@ -318,27 +321,41 @@ def generateRandomParameters(Nb_Points, Nb_Cycle):
     p1 = [0.23, 0.23, 0.30, 0.24]
     ProbaT = p1
 
-    df_t_cyc = pd.DataFrame()
-    df_p_cyc = pd.DataFrame()
-    df_p_cyc_calib = pd.DataFrame()
+    population = []
 
     for k in range(Nb_Points):
+        df = pd.DataFrame()
+        df.fitness = -1
+    
         # Intensity/Power Cycle generation
-        df_t_cyc[k] = rng.choice(t, Nb_Cycle, p=ProbaT)
+        df['t_cyc'] = rng.choice(t, Nb_Cycle, p=ProbaT)
         # First we generate an array of cycle which only contains index for the moment
         temp = rng.choice(np.linspace(0, len(P), len(P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
         while temp[0] == 0:  # We assume that the first element of P is the zero power element
             temp = rng.choice(np.linspace(0, len(P), len(P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
-        df_p_cyc_calib[k] = np.array([P_calib[i] for i in temp])
-        df_p_cyc[k] = np.array([P[i] for i in temp])
+        df['p_cyc_calib'] = np.array([P_calib[i] for i in temp])
+        df['p_cyc'] = np.array([P[i] for i in temp])
+        population.append(df)
 
-    return df_t_cyc, df_p_cyc, df_p_cyc_calib
+    return population
 
+def evaluateFitnessValues(population,FileDir,FolderCalibWavelength,Spectrograph_Center,Time_Min,Time_Max,Observable):
+    if USE_DUMMY:
+        for solution in population:
+            solution.fitness = np.sum(solution['t_cyc'])
+            #f = 0
+            #for i in range(len(solution['t_cyc'])):
+            #    if solution['t_cyc'][i] == 0.1:
+            #        f += 1
+            #    else:
+            #        break
+            #solution.fitness = f
+        return
 
-
-def evaluateFitnessValues(FileDir,FolderCalibWavelength,Spectrograph_Center,Time_Min,Time_Max,Observable):
     # Load experimental data
     DataTot, CycleStore,Nb_pts = LoadDataFromFiles(FileDir,FolderCalibWavelength,Spectrograph_Center)
+    assert len(population) == Nb_pts
+    
     # Load experimental settings
     Pos, p_cyc, TimeCycle, TimeSync,t_globalSync,StabilityTime_begin,StabilityTime_reset,StabilityTime_end = loadExperimentInfo(CycleStore, Nb_pts,FileDir)
 
@@ -409,14 +426,45 @@ def evaluateFitnessValues(FileDir,FolderCalibWavelength,Spectrograph_Center,Time
         elif Observable=='M1':
             fitness_values[i] =(M_all.loc[j,'S2'][0].loc[(M_all.loc[j,'S2'][0].index>Time_Min) & (M_all.loc[j,'S2'][0].index<Time_Max),0]
                             -M_all.loc[j,'S1'][0].loc[(M_all.loc[j,'S1'][0].index>Time_Min) & (M_all.loc[j,'S1'][0].index<Time_Max),0]).mean()
+        population[i].fitness = fitness_values[i]
      
     print("# FITNESS VALUES #")
     print(fitness_values)
-    return fitness_values
 
-def generateNewSolutions(df_t_cyc, df_p_cyc, df_p_cyc_calib, fitness_values):
-    # TODO - implement selection and variation step of evolutionary algorithm
-    return df_t_cyc, df_p_cyc, df_p_cyc_calib
+def get_best_solution( candidates ):
+    best_ind = np.argmax([ind.fitness for ind in candidates])
+    return candidates[best_ind]
+
+def tournamentSelection(selection_pool, tournament_size = 4):
+    selected = []
+    number_of_rounds = tournament_size//2
+    for i in range(number_of_rounds):
+        number_of_tournaments = len(selection_pool)//tournament_size
+        order = np.random.permutation(len(selection_pool)).tolist()
+        for j in range(number_of_tournaments):
+            tournament_pool = [selection_pool[i] for i in order[tournament_size*j:tournament_size*(j+1)]]
+            best = get_best_solution(tournament_pool)
+            selected.append(best)
+    return selected
+
+def twoPointCrossOver(parent_a, parent_b):
+    l = len(parent_a['t_cyc'])
+    offspring_a = pd.DataFrame()
+    offspring_b = pd.DataFrame()    
+    m = (np.arange(l) < np.random.randint(l+1)) ^ (np.arange(l) < np.random.randint(l+1))
+    properties = ['t_cyc', 'p_cyc', 'p_cyc_calib']
+    for prop in properties:
+        offspring_a[prop] = np.where(m, parent_a[prop], parent_b[prop])
+        offspring_b[prop] = np.where(~m, parent_a[prop], parent_b[prop])    
+    return [offspring_a, offspring_b]
+
+def makeOffspring(population):
+    offspring = []
+    order = np.random.permutation(len(population))
+    for i in range(len(order)//2):
+        offsprings = twoPointCrossOver(population[order[2*i]],population[order[2*i+1]])
+        offspring = offspring + offsprings
+    return offspring
 
 def loadExperimentInfo(CycleStore, Nb_pts,FileDir):
 
@@ -487,7 +535,7 @@ def LoadDataFromFiles(FileDir,FolderCalibWavelength,WaveCenter):
         DataTotTemp['Time'] = TimeI
         DataTot.append(DataTotTemp)
 
-        FileCycle = pd.read_csv(Folder[j]+'\Cycle.csv')
+        FileCycle = pd.read_csv(Folder[j]+'/Cycle.csv')
         CycleStore = pd.concat([CycleStore, FileCycle], axis=1)
     
     DataTot = pd.concat(DataTot).set_index(['Mes', 'Time'])
@@ -502,7 +550,7 @@ if __name__ == '__main__':
     #############################
     # Optimization parameters
     #############################
-    generations_budget = 10
+    generations_budget = 20
 
     #############################
     # TimeTrace parameters
@@ -532,9 +580,9 @@ if __name__ == '__main__':
                'Power probe ':PowerProbePulsePicker,'Em Gain probe':EmGainProbe,'Spectrograph slit width':Spectrograph_slit,'Spectrograph center Wavelength':Spectrograph_Center,
                'Note': 'The SHG unit from Coherent was used and ND05 for probe'}
 
-    FileDir = '/export/scratch2/constellation-data/EnhancePerov/output-dummy/'
+    #FileDir = '/export/scratch2/constellation-data/EnhancePerov/output-dummy/'
+    FileDir = 'output-dummy/'
 
-    df_t_cyc, df_p_cyc, df_p_cyc_calib = generateRandomParameters(Nb_Points, Nb_Cycle) #generate random initial population
     
     
     start_x = 3
@@ -548,7 +596,15 @@ if __name__ == '__main__':
     runner = timeTraceRunner(**GeneralPara) # This object allow to run the timetrace, load the data, ...
     runner.initialize(start_x, end_x, start_y, end_y,BeamRadius, FileDir)
 
-    
+    # generate initial population
+    population = generateRandomParameters(Nb_Points, Nb_Cycle)
+    # run the experiment
+    runner.runTimeTrace(StabilityTime_Begin,StabilityTime_Reset,StabilityTime_End,
+                        PowerProbePulsePicker,EmGainProbe, population)
+    # calculate fitness values
+    FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
+    evaluateFitnessValues(population,runner.DirectoryPath,FolderCalibWavelength,Spectrograph_Center,Time_Min,Time_Max,'M2')
+
     
     number_of_generations = 0 
     while number_of_generations < generations_budget:  # generational loop
@@ -556,16 +612,21 @@ if __name__ == '__main__':
         print("# GENERATION",number_of_generations,"#")
         print("################")
 
+        offspring = makeOffspring(population)
+
         # run the experiment
         runner.runTimeTrace(StabilityTime_Begin,StabilityTime_Reset,StabilityTime_End,
-                            PowerProbePulsePicker,EmGainProbe, df_t_cyc, df_p_cyc, df_p_cyc_calib)
-        
+                            PowerProbePulsePicker,EmGainProbe, offspring)
         # calculate fitness values
         FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
-        fitness_values = evaluateFitnessValues(runner.DirectoryPath,FolderCalibWavelength,Spectrograph_Center,Time_Min,Time_Max,'M2')
+        evaluateFitnessValues(offspring,runner.DirectoryPath,FolderCalibWavelength,Spectrograph_Center,Time_Min,Time_Max,'M2')
        
         # update population
-        df_t_cyc, df_p_cyc, df_p_cyc_calib = generateNewSolutions(df_t_cyc, df_p_cyc, df_p_cyc_calib, fitness_values)
+        population = tournamentSelection(population + offspring)
+
+        print("Best solution so far:")
+        print(get_best_solution(population).fitness)
+        print(get_best_solution(population)['t_cyc'])
 
         number_of_generations += 1
 
