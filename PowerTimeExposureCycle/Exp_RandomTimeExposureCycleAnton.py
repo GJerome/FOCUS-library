@@ -550,7 +550,7 @@ if __name__ == '__main__':
     #############################
     # Optimization parameters
     #############################
-    generations_budget = 20
+    generations_budget = 100
 
     #############################
     # TimeTrace parameters
