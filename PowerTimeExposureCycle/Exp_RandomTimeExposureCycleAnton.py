@@ -296,6 +296,11 @@ class timeTraceRunner:
 
 
 def generateRandomParameters(Nb_Points, Nb_Cycle):
+    ''''This function generate a point list. Each element of the list contains a dataframe 
+    which define the cycle with the time of exposure, the power send to the sample 
+    and the power from the pulse picker and a fittness attribute. The parameter are then the number of points and the number
+    of step in a cycle.  '''
+    
     ##############################################################
     # Parameter space and random choice
     ##############################################################
@@ -461,7 +466,7 @@ def twoPointCrossOver(parent_a, parent_b):
 def makeOffspring(population):
     offspring = []
     order = np.random.permutation(len(population))
-    for i in range(len(order)//2):
+    for i in range(len(order)//2): 
         offsprings = twoPointCrossOver(population[order[2*i]],population[order[2*i+1]])
         offspring = offspring + offsprings
     return offspring
@@ -518,7 +523,7 @@ def LoadDataFromFiles(FileDir,FolderCalibWavelength,WaveCenter):
     CenterPixel = WaveCenter
     Wavelength = (PixelNumber-b)/a+CenterPixel
 
-    Folder = glob.glob(FileDir+'/Mes*')
+    Folder = sorted(glob.glob('./Mes*'), key=lambda x: float(x[5:x.find('x')]))
     CycleStore = pd.DataFrame()
     DataTot = []
     for j in range(len(Folder)):
