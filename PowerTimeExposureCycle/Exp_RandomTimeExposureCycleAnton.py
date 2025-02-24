@@ -12,6 +12,7 @@ import spe_loader as sl
 
 if USE_DUMMY:
     import ControlDummy as shutter
+    import ControlDummy as ThorlabsShutter
     import ControlDummy as las
     import ControlDummy as picker
     import ControlDummy as EMCCD
@@ -19,6 +20,7 @@ if USE_DUMMY:
     import ControlDummy as time
 else:
     import ControlFlipMount as shutter
+    import ControlThorlabsShutter as ThorlabsShutter
     import ControlLaser as las
     import ControlPulsePicker as picker
     import ControlEMCCD as EMCCD
@@ -138,11 +140,9 @@ class timeTraceRunner:
         #############################
         # Initialisation of the shutter
         #############################
-        self.FM = shutter.FlipMount("37007726",'Shutter')
-        self.FM_ND = shutter.FlipMount("37007725",'ND05') # state 1 is the one with the ND
+        self.FM = ThorlabsShutter.ShutterControl("68800883",'Shutter')
+        self.FM_ND = shutter.FlipMount("37007725",'ND1') # state 1 is the one with the ND
         self.InstrumentsPara['FlipMount']=self.FM.parameterDict | self.FM_ND.parameterDict
-        self.FM = shutter.FlipMount("37007726")
-        self.InstrumentsPara['FlipMount']=self.FM.parameterDict
         print('Initialised Flip mount')
 
     #############################
@@ -164,11 +164,11 @@ class timeTraceRunner:
     #############################
     def initializeOutputDirectory(self, path):
         print('Directory staging, please check other window')
-        out_dir = path
+        #out_dir = path
         #if USE_DUMMY:
         #    out_dir = path + '/output-dummy'
-        if(not os.path.isdir(out_dir)):
-            os.makedirs(out_dir)
+        #if(not os.path.isdir(out_dir)):
+        #    os.makedirs(out_dir)
         self.DirectoryPath = FileControl.PrepareDirectory(self.GeneralPara, self.InstrumentsPara)
         pd.DataFrame(self.Pos).to_csv(self.DirectoryPath+'/Position.csv')
         #self.camera.SetSaveDirectory(self.DirectoryPath.replace('/',"\\"))
@@ -195,7 +195,7 @@ class timeTraceRunner:
         IteratorCyc = np.nditer(CycNumber, flags=['f_index'])
 
         self.Laser.SetStatusShutterTunable(1)
-        self.FM.ChangeState(0)
+        self.FM.SetClose(0)
         for k in IteratorMes:
             # Generation of the folder and measurement prep
             print('Measurement number:{}'.format(MesNumber[IteratorMes.index]))
@@ -230,7 +230,7 @@ class timeTraceRunner:
             t_sync=np.zeros(len(t_cyc))
             self.camera.SetEMGain(EmGainProbe)
             self.FM_ND.ChangeState(1)
-            self.FM.ChangeState(1)  
+            self.FM.SetOpen()  
             self.camera.Acquire()# Launch acquisition
             
             t0=time.time()
@@ -247,10 +247,10 @@ class timeTraceRunner:
             # Reset  time
             ###############
             print('Reset time')
-            self.FM.ChangeState(0)
+            self.FM.SetClose()
             self.FM_ND.ChangeState(0)
             time.sleep(StabilityTime_Reset)
-            self.FM.ChangeState(1)
+            self.FM.SetOpen()
 
             #############################
             #Power/Time  iteration
@@ -259,9 +259,9 @@ class timeTraceRunner:
             for j in IteratorCyc:
                 print('Cycle {}: P={},t={}'.format(IteratorCyc.index,p_cyc[IteratorCyc.index],t_cyc[IteratorCyc.index]))
                 if p_cyc[IteratorCyc.index] == 0:
-                    self.FM.ChangeState(0)
+                    self.FM.SetClose()
                 elif p_cyc[IteratorCyc.index] != 0:
-                    self.FM.ChangeState(1)
+                    self.FM.SetOpen()
                     self.pp.SetPower(p_cyc_calib[IteratorCyc.index])
                 t_sync[IteratorCyc.index]=time.time()-t0
                 time.sleep(t_cyc[IteratorCyc.index])
@@ -274,7 +274,7 @@ class timeTraceRunner:
 
             
             print('Stability Time end')
-            self.FM.ChangeState(1)
+            self.FM.SetOpen()
             self.FM_ND.ChangeState(1)
             self.pp.SetPower(PowerProbePulsePicker)
             self.camera.SetEMGain(EmGainProbe)
@@ -284,7 +284,7 @@ class timeTraceRunner:
             # Acq finished
             #############################
             self.FM_ND.ChangeState(0)
-            self.FM.ChangeState(0)
+            self.FM.SetClose()
             self.camera.SetEMGain(1)
 
             # Save all the cycle in the folder
@@ -555,45 +555,45 @@ if __name__ == '__main__':
     #############################
     # Optimization parameters
     #############################
-    generations_budget = 100
+    generations_budget = 4
 
     #############################
     # TimeTrace parameters
     #############################
-    Nb_Points = 100  # Number of position for the piezo
+    Nb_Points = 25  # Number of position for the piezo
     Nb_Cycle = 10  # Number of cycle during experiment
 
     
 
-    BeamRadius=10 # Minimum distance betweensuccesive point in um
+    BeamRadius=15 # Minimum distance betweensuccesive point in um
 
-    StabilityTime_Begin=60# Time for which it will probe at the beginning of the cycle
-    StabilityTime_Reset=60# The beam will then be block for this amount of time so that the sample 'reset'
-    StabilityTime_End = 60# Time for which it will probe at the end of the cycle
+    StabilityTime_Begin=30# Time for which it will probe at the beginning of the cycle
+    StabilityTime_Reset=30# The beam will then be block for this amount of time so that the sample 'reset'
+    StabilityTime_End = 30# Time for which it will probe at the end of the cycle
     #The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
     PowerProbePulsePicker=500
     EmGainProbe=20
 
-    Spectrograph_slit=100 # This is just for record not actually setting it up
-    Spectrograph_Center=750# This is just for record not actually setting it up
+    Spectrograph_slit=50 # This is just for record not actually setting it up
+    Spectrograph_Center=700# This is just for record not actually setting it up
 
     FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
-    Time_Min=40
-    Time_Max=50
+    Time_Min=20
+    Time_Max=30
     GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points':Nb_Points,'Beam avoidance radius':BeamRadius,
                'Stability time begin ': StabilityTime_Begin,'Stability time reset':StabilityTime_Reset,'Stability time end ': StabilityTime_End,
                'Power probe ':PowerProbePulsePicker,'Em Gain probe':EmGainProbe,'Spectrograph slit width':Spectrograph_slit,'Spectrograph center Wavelength':Spectrograph_Center,
-               'Note': 'The SHG unit from Coherent was used and ND05 for probe'}
+               'Note': 'The SHG unit from Coherent was used and ND1 for probe'}
 
     #FileDir = '/export/scratch2/constellation-data/EnhancePerov/output-dummy/'
     FileDir = 'output-dummy/'
 
     
     
-    start_x = 3
-    end_x = 78
-    start_y = 3
-    end_y = 78    
+    start_x = 0.5
+    end_x = 79.5
+    start_y = 0.5
+    end_y = 79.5   
 
     ####
     #Initialisation of the Timetrace object

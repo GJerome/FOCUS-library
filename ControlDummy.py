@@ -21,6 +21,21 @@ class FlipMount:
 
     def GetState(self):
         return self.state
+
+###################################################################
+
+class ShutterControl:
+    def __init__(self, serial, Name=None):
+        self.name = Name
+        self.parameterDict = {}
+
+    def SetOpen(self):
+        pass
+        
+    def SetClose(self):
+       pass 
+
+
     
 ###################################################################
     
