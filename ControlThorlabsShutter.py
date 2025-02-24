@@ -18,7 +18,7 @@ from Thorlabs.MotionControl.GenericMotorCLI import *
 from Thorlabs.MotionControl.DeviceManagerCLI import *
 class ShutterControl:
 
-    def __init__(self,SN):
+    def __init__(self,SN,Name):
         try:
 
             DeviceManagerCLI.BuildDeviceList()
@@ -46,18 +46,20 @@ class ShutterControl:
         
         except Exception as e:
             print(e)
+        self.parameterDict = {'Name':Name,'{} Serial number'.format(str(Name)):SN,}
+
     def SetOpen(self):
         self.device.SetOperatingState(SolenoidStatus.OperatingStates.Active)
+        
     def SetClose(self):
         self.device.SetOperatingState(SolenoidStatus.OperatingStates.Inactive)
-    def __del__(self):
-        self.device.StopPolling()
-        self.device.Disconnect()        
+
 
 
 
 if __name__ == "__main__":
-    shutter=ShutterControl("68800883")
+    shutter=ShutterControl("68800883",'Shutter')
     shutter.SetOpen()
-    time.sleep(5)
-    shutter.SetClose()
+    #shutter.SetClose()
+    #time.sleep(5)
+    #shutter.SetClose()
