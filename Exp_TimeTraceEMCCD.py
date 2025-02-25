@@ -20,9 +20,9 @@ os.system('cls')
 TimeTimeTrace=10*60
 #Position Stage
 
-x = (40,50,60)
+x = (40,60)
 
-y = (40,50,60)
+y = (40,60)
 
 X, Y = np.meshgrid(x, y)
 Pos = np.stack([X.ravel(), Y.ravel()], axis=-1)

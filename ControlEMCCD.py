@@ -44,7 +44,7 @@ def device_found(experiment):
 
 class LightFieldControl:
 
-    sensor_temperature = float(-45)
+    sensor_temperature = float(-55)
 
     def __init__(self, ExperimentName):
         assert not isinstance(
@@ -119,9 +119,10 @@ class LightFieldControl:
         '''Return the time it take to acquire a frame in second.'''
         try:
             value=1/float(self.GetSettingValue(CameraSettings.AcquisitionFrameRate))
+            print('Frame rate:{}'.format(self.GetSettingValue(CameraSettings.AcquisitionFrameRate)))
         except TypeError:
             value=0
-            print('Frame rate:{}'.format(self.GetSettingValue(CameraSettings.AcquisitionFrameRate)))
+            print('Pb:Frame rate:{}'.format(self.GetSettingValue(CameraSettings.AcquisitionFrameRate)))
         return value
 
     def GetNumberOfFrame(self):
@@ -189,11 +190,12 @@ class LightFieldControl:
 
 if __name__ == "__main__":
     emccd = LightFieldControl(ExperimentName='ML')
-    emccd.print_setting(CameraSettings.AdcEMGain)
-    emccd.SetEMGain(1)
-    emccd.print_setting(CameraSettings.AdcEMGain)
+    print(emccd.GetFrameTime())
+    #emccd.print_setting(CameraSettings.AdcEMGain)
+    #emccd.SetEMGain(1)
+    #emccd.print_setting(CameraSettings.AdcEMGain)
     #emccd.print_setting(ExperimentSettings.FileNameGenerationDirectory)
-    time.sleep(10)
+    #time.sleep(10)
     '''
     if emccd.Status == False:
         print("The experiment couldn't be setup please close all instance of Lightfield, check connection and retry.")
