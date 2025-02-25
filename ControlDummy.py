@@ -10,8 +10,10 @@ def time():
 ###################################################################
 
 class FlipMount:
-    def __init__(self, serial):
+    def __init__(self, serial, Name=None):
         self.state = 0
+        self.name = Name
+        self.parameterDict = {}
 
     def ChangeState(self, state):
         self.state = state
@@ -19,6 +21,21 @@ class FlipMount:
 
     def GetState(self):
         return self.state
+
+###################################################################
+
+class ShutterControl:
+    def __init__(self, serial, Name=None):
+        self.name = Name
+        self.parameterDict = {}
+
+    def SetOpen(self):
+        pass
+        
+    def SetClose(self):
+       pass 
+
+
     
 ###################################################################
     
@@ -62,6 +79,9 @@ class LightFieldControl:
 
     def WaitForAcq(self):
         pass
+
+    def SetEMGain(self, Gain):
+        self.EMGain = str(Gain)
     
     def SetSaveDirectory(self, str):
         print('Save directory: {}'.format(str))

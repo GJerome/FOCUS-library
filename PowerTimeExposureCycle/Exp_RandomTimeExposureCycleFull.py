@@ -15,6 +15,7 @@ import spe_loader as sl
 
 
 import ControlFlipMount as shutter
+import ControlThorlabsShutter as ThorlabsShutter
 import ControlLaser as las
 import ControlPulsePicker as picker
 import ControlEMCCD as EMCCD
@@ -27,27 +28,31 @@ import ControlPiezoStage as Transla
 #############################
 
 
-Nb_Points =100  # Number of position for the piezo
+Nb_Points =150  # Number of position for the piezo
 
-start_x =7
-end_x = 78
-start_y = 7
-end_y = 75
+start_x =0.5
+end_x = 79.5
+start_y = 0.5
+end_y = 79.5
 
 
-Nb_Cycle = 10 # Number of cycle during experiment
+Nb_Cycle = 10# Number of cycle during experiment
 
-StabilityTime_Begin=60# Time for which it will probe at the beginning of the cycle
+StabilityTime_Begin=45# Time for which it will probe at the beginning of the cycle
 StabilityTime_Reset=60# The beam will then be block for this amount of time so that the sample 'reset'
-StabilityTime_End = 60# Time for which it will probe at the end of the cycle
+StabilityTime_End = 45# Time for which it will probe at the end of the cycle
 #The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
 
 PowerProbePulsePicker=500
 EmGainProbe=50
 
 
+EachStepDifferentProbaPower=False
+FileProbaPower='./PowerTimeExposureCycle/BestPropaPStep_20MHz_25-02-01-B4P9-ML-20MHz_Time0to10s.csv'
 
-OnlyOneConfig=True # Set it  to true so that it only probe with one config for Nb_points
+EachStepDifferentProbaTime=False
+
+OnlyOneConfig=False # Set it  to true so that it only probe with one config for Nb_points
 OnlyOneConfig_Random=False # Set it  to true so that this config is random
 OnlyOneConfig_UseCurentCalib=False #Not implemented yet, Set it  to true if you want it to use the current calibration or False if it should read the power send to the pulse picker from a file
 
@@ -55,11 +60,11 @@ ProbeDiffDivRatio= False #For the probing it set to true The staiblity time can 
 DivRatio=[40,4]# A list containing the different div ratio
 PowerProbe=[1800,500]# A list containing the power to use to probe
 
-Spectrograph_slit=10 # This is just for record not actually setting it up
-Spectrograph_Center=750# This is just for record not actually setting it up
+Spectrograph_slit=100 # This is just for record not actually setting it up
+Spectrograph_Center=700# This is just for record not actually setting it up
 
 FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
-BeamRadius=15
+BeamRadius=20
 
 #############################
 # Piezo parameter
@@ -115,9 +120,12 @@ except IndexError:
 
 GeneralPara = {'Experiment name': ' ML', 'Nb points':Pos.shape[0],'Beam avoidance radius':BeamRadius,
                'Stability time begin ': StabilityTime_Begin,'Stability time reset':StabilityTime_Reset,'Stability time end ': StabilityTime_End,
-               'Probe DiffDivRatio':ProbeDiffDivRatio,'Div ratio probe used':DivRatio,'Power probe div ratio':PowerProbe,
-               'Power probe ':PowerProbePulsePicker,'Em Gain probe':EmGainProbe,'Spectrograph slit width':Spectrograph_slit,'Spectrograph center Wavelength':Spectrograph_Center,
-               'Note': 'The SHG unit from Coherent was used and ND05 for probe'}
+               'Power probe ':PowerProbePulsePicker,'Em Gain probe':EmGainProbe,
+               'Spectrograph slit width':Spectrograph_slit,'Spectrograph center Wavelength':Spectrograph_Center}
+if ProbeDiffDivRatio==True:               
+    GeneralPara.update({'Probe DiffDivRatio':ProbeDiffDivRatio,'Div ratio probe used':DivRatio,'Power probe div ratio':PowerProbe})
+               
+GeneralPara.update({'Note': 'The SHG unit from Coherent was used and ND1 for probe'})
 
 InstrumentsPara = {}
 ##############################################################
@@ -129,27 +137,39 @@ InstrumentsPara = {}
 ###################
 P = (0, 4.4, 10, 100, 200)  # power in uW
 #Value to reach on the powermeter (0,11,25,240,475)uW
-P_calib = (500, 500,900, 2400, 3400)  # Power from the pp to reach values of P #20MHz
+P_calib = (500, 500,700, 1900, 2600)  # Power from the pp to reach values of P #20MHz
+#P_calib = (500, 1600,2200, 7900, 15700) # Power from the pp to reach values of P #2.58MHz
+#P_calib = (500, 600,1100, 3500, 5200) # Power from the pp to reach values of P #2.58MHz same peak power
+
 #P_calib = (500, 1400,2000, 6100, 9300)  # Power from the pp to reach values of P #5MHz
-#P_calib = (500, 1700,2500, 10000, 17500)  # Power from the pp to reach values of P #500kHz
+#P_calib = (500, 1700,2400, 9400, 17500)  # Power from the pp to reach values of P #500kHz
 
-p0 = [0.2, 0.2, 0.2, 0.2, 0.2]
-p1 = [0.3, 0.175, 0.175, 0.175, 0.175]
-ProbaP = p1
+if EachStepDifferentProbaPower==False:
+    p0 = [0.2, 0.2, 0.2, 0.2, 0.2]
+    p1 = [0.3, 0.12, 0.12, 0.16, 0.3]
+    ProbaP = p0
 
-GeneralPara['Power cycle']=P
-GeneralPara['Power Calib']=P_calib
-GeneralPara['Probability table power']=ProbaP
+    GeneralPara['Power cycle']=P
+    GeneralPara['Power Calib']=P_calib
+    GeneralPara['Probability table power']=ProbaP
+else: 
+    ProbaP_step=pd.read_csv(FileProbaPower,usecols=range(6)[1:6])
+    print('Probability for each step: ')
+    print(ProbaP_step)
+    GeneralPara['Power cycle']=ProbaP_step.columns.astype(np.float64).to_numpy()
+    GeneralPara['Power Calib']=P_calib
+    GeneralPara['Probability table power']=ProbaP_step
+
 ###################
 # Proba density function Time
 ###################
 t = (0.1, 1, 10, 100)  # time
 
 p0 = [0.25, 0.25, 0.25, 0.25]
-p1 = [0.25, 0.25, 0.25, 0.25]
-ProbaT = p1
+p1 = [0, 0.30, 0.35, 0.35]
+ProbaT = p0
 
-GeneralPara['Time cycle']=P
+GeneralPara['Time cycle']=t
 GeneralPara['Probability table time']=ProbaT
 ###################
 # RNG declaration
@@ -158,7 +178,7 @@ rng = np.random.default_rng()
 
 if OnlyOneConfig==True:
     if OnlyOneConfig_Random==False:
-        FileConfig='./PowerTimeExposureCycle/PowerTimeCycles/Cycle241209-Order2.csv'
+        FileConfig='./PowerTimeExposureCycle/PowerTimeCycles/BestCycle25-02-01-CsMaFaPbI0.87Br0.13-Si02.csv'
         print('Reading file {} for power/time config '.format(FileConfig))
         # For the moment we assume only one config
         Cycle_info=pd.read_csv(FileConfig)
@@ -230,8 +250,8 @@ print('Initialised EMCCD')
 # Initialisation of the shutter
 #############################
 
-FM = shutter.FlipMount("37007726",'Shutter')
-FM_ND = shutter.FlipMount("37007725",'ND05') # state 1 is the one with the ND
+FM = ThorlabsShutter.ShutterControl("68800883",'Shutter')
+FM_ND = shutter.FlipMount("37007725",'ND1') # state 1 is the one with the ND
 InstrumentsPara['FlipMount']=FM.parameterDict | FM_ND.parameterDict
 print('Initialised Flip mount')
 
@@ -254,8 +274,9 @@ IteratorMes = np.nditer(MesNumber, flags=['f_index'])
 CycNumber = np.linspace(0, Nb_Cycle, Nb_Cycle, endpoint=False)
 IteratorCyc = np.nditer(CycNumber, flags=['f_index'])
 
+FM.SetClose()
 Laser.SetStatusShutterTunable(1)
-FM.ChangeState(0)
+
 
 
 for k in IteratorMes:
@@ -278,15 +299,23 @@ for k in IteratorMes:
 #############################
     # Intensity/Power Cycle generation
     t_cyc = rng.choice(t, Nb_Cycle, p=ProbaT)
-    # First we generate an array of cycle which only contains index for the moment
-    temp = rng.choice(np.linspace(0, len(P), len(
-        P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
-
-    while temp[0] == 0:  # We assume that the first element of P is the zero power element
-        temp = rng.choice(np.linspace(0, len(P), len(P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
-
     if OnlyOneConfig==True:
         t_cyc= T_final
+    # First we generate an array of cycle which only contains index for the moment
+    if EachStepDifferentProbaPower==False:
+
+        temp = rng.choice(np.linspace(0, len(P), len(
+            P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
+
+        while temp[0] == 0:  # We assume that the first element of P is the zero power element
+            temp = rng.choice(np.linspace(0, len(P), len(P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
+    else:
+        print('Generating cycle from user defined probability')
+        temp=np.zeros([Nb_Cycle],dtype=int)
+        for i in range(Nb_Cycle):
+            temp[i] = int(rng.choice(np.linspace(0, len(P), len(P), endpoint=False, dtype=int), 1, p=ProbaP_step.iloc[i,:].to_numpy()))
+
+    if OnlyOneConfig==True:
         p_cyc_calib = P_Final_calib
         p_cyc = P_Final
     else:
@@ -299,12 +328,12 @@ for k in IteratorMes:
 #############################
 # Camera setting adjustement
 #############################
-    NbFrameCycle = np.ceil((T_tot+StabilityTime_Begin+2*StabilityTime_End+StabilityTime_Reset+5*0.3)/FrameTime)
+    NbFrameCycle = np.ceil((T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset+5)/FrameTime)
     camera.SetNumberOfFrame(NbFrameCycle)
     print('Time cycle:{}'.format(t_cyc))
     print('Power cycle:{}'.format(p_cyc))
     print('Real Power cycle:{}'.format(p_cyc_calib))
-    print('Total time={}'.format(T_tot+T_tot+StabilityTime_Begin+StabilityTime_End))
+    print('Total time={}'.format(T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset))
 
     
     t_sync=np.zeros(len(t_cyc)) #Create timing parameter
@@ -314,8 +343,9 @@ for k in IteratorMes:
 #############################
     print('Probe begin')
     FM_ND.ChangeState(1)
-    camera.SetEMGain(EmGainProbe)
-    FM.ChangeState(1) # Launch acquisition
+    if EmGainProbe!=0:
+        camera.SetEMGain(EmGainProbe)
+    FM.SetOpen() # Launch acquisition
     camera.Acquire() 
     t0=time.time()
 
@@ -329,16 +359,16 @@ for k in IteratorMes:
             pp.SetDivRatio(val_DR)
             time.sleep(np.floor(StabilityTime_Begin*0.5))
         pp.SetDivRatio(DivRatioTemp)
-
-    camera.SetEMGain(1)
+    if EmGainProbe!=0:
+        camera.SetEMGain(1)
 #############################
 # Reset time
 #############################
     print('Reset time')
-    FM.ChangeState(0)
+    FM.SetClose()
     FM_ND.ChangeState(0)
     time.sleep(StabilityTime_Reset)
-    FM.ChangeState(1)
+    FM.SetOpen()
 
 #############################
 #Power/Time  iteration
@@ -347,23 +377,23 @@ for k in IteratorMes:
     for j in IteratorCyc:
         print('Cycle {}: P={},t={}'.format(IteratorCyc.index,p_cyc[IteratorCyc.index],t_cyc[IteratorCyc.index]))
         if p_cyc[IteratorCyc.index] == 0:
-            FM.ChangeState(0)
+            FM.SetClose()
         elif p_cyc[IteratorCyc.index] != 0:
-            FM.ChangeState(1)
+            FM.SetOpen()
             pp.SetPower(p_cyc_calib[IteratorCyc.index])
         t_sync[IteratorCyc.index]=time.time()-t0
         time.sleep(t_cyc[IteratorCyc.index])
     IteratorCyc.reset()
 
-
+    print('Probe end')
 #############################
 # Stability time at the end 
 #############################
 
     FM_ND.ChangeState(1)
-    FM.ChangeState(1)
-    
-    camera.SetEMGain(EmGainProbe)
+    FM.SetOpen()
+    if EmGainProbe!=0:
+        camera.SetEMGain(EmGainProbe)
     if ProbeDiffDivRatio==False:
         pp.SetPower(PowerProbePulsePicker)
     elif ProbeDiffDivRatio==True:
@@ -378,9 +408,9 @@ for k in IteratorMes:
 #############################
 # Acq finished
 #############################
-
-    camera.SetEMGain(1)
-    FM.ChangeState(0)
+    if EmGainProbe!=0:
+        camera.SetEMGain(1)
+    FM.SetClose()
     FM_ND.ChangeState(0)
     # Save all the cycle in the folder
     temp = pd.DataFrame(
@@ -406,7 +436,7 @@ def LoadData(Folder):
     CenterPixel = Spectrograph_Center
     Wavelength = (PixelNumber-b)/a+CenterPixel
 
-    Folder = glob.glob(Folder+'/Mes*')
+    Folder = sorted(glob.glob('./Mes*'), key=lambda x: float(x[5:x.find('x')]))
     CycleStore = pd.DataFrame()
     DataTot = []
     for j in range(len(Folder)):

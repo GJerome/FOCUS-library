@@ -1,4 +1,3 @@
-import ControlLockInAmplifier as lock
 import ControlLaser as las
 import ControlPulsePicker as picker
 import ControlStreakCamera as StreakCamera

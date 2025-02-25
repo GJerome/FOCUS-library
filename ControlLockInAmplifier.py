@@ -20,6 +20,7 @@ class LockInAmplifier:
     def __init__(self,parafile):
         
         self.parameterDict=ParameterRead(parafile)
+        print(self.parameterDict)
         d=zhinst.core.ziDiscovery()
         
         props = d.get(d.find(self.parameterDict['ServerName']))
@@ -32,6 +33,8 @@ class LockInAmplifier:
         # Name of node for each demodulators
         self.S1_name='/{}/demods/{}/'.format(self.parameterDict['ServerName'],self.parameterDict['Demodulator1'])
         self.S2_name='/{}/demods/{}/'.format(self.parameterDict['ServerName'],self.parameterDict['Demodulator2'])
+        if 'Demodulator3' in self.parameterDict:
+            self.S3_name='/{}/demods/{}/'.format(self.parameterDict['ServerName'],self.parameterDict['Demodulator3'])
 
         #############################
         # Lock-in amplifier parameters
@@ -41,8 +44,8 @@ class LockInAmplifier:
         self.api_session.setInt(self.S1_name+'enable', 1)
         self.api_session.setDouble(self.S1_name+'rate', float(self.parameterDict['SamplingRate']))
         try:
-            self.api_session.setInt(self.S1_name+'order', int(self.parameterDict['FilterOrder']))
-            self.api_session.setDouble(self.S1_name+'TimeConstant', float(self.parameterDict['TimeConstant']))
+            self.api_session.setInt(self.S1_name+'order', int(self.parameterDict['FilterOrder_1']))
+            self.api_session.setDouble(self.S1_name+'TimeConstant', float(self.parameterDict['TimeConstant_1']))
         except KeyError:
             print('Problem setting one of the experiment parameter')
 
@@ -52,15 +55,27 @@ class LockInAmplifier:
 
         try:
             self.api_session.setInt(self.S2_name+'order', int(self.parameterDict['FilterOrder']))
-            self.api_session.setDouble(self.S2_name+'TimeConstant', float(self.parameterDict['TimeConstant']))
+            self.api_session.setDouble(self.S2_name+'TimeConstant', float(self.parameterDict['TimeConstant_2']))
         except KeyError:
             print('Problem setting one of the experiment parameter')
+
+        if 'Demodulator3' in self.parameterDict:
+            self.api_session.setInt(self.S3_name+'enable', 1)
+            self.api_session.setDouble(self.S3_name+'rate', float(self.parameterDict['SamplingRate']))
+
+            try:
+                self.api_session.setInt(self.S3_name+'order', int(self.parameterDict['FilterOrder_3']))
+                self.api_session.setDouble(self.S3_name+'TimeConstant', float(self.parameterDict['TimeConstant_3']))
+            except KeyError:
+                print('Problem setting one of the experiment parameter')
 
         # Global parameter
         self.Timebase=float(self.api_session.getInt("/{}/clockbase".format(self.parameterDict['ServerName'])))
 
         self.api_session.subscribe(self.S1_name+"sample")
         self.api_session.subscribe(self.S2_name+"sample")
+        if 'Demodulator3' in self.parameterDict:
+            self.api_session.subscribe(self.S3_name+"sample")
 
 
 
@@ -124,6 +139,81 @@ class LockInAmplifier:
             t2=(t2)/self.Timebase
         return pd.DataFrame({'t':t1[1:],'R1':data_Source1R[1:],'Phase1':data_Source1T[1:],
                              'R2':np.interp(t1[1:],t2[1:],data_Source2R[1:]),'Phase2':np.interp(t1[1:],t2[1:],data_Source2T[1:])})
+    
+    def AcquisitionLoop3W(self,time_exp):
+
+        #############################
+        # Creation of data vector
+        #############################
+
+        data_Source1R=np.empty(1)
+        data_Source1T=np.empty(1)
+
+        data_Source2R=np.empty(1)
+        data_Source2T=np.empty(1)
+
+        data_Source3R=np.empty(1)
+        data_Source3T=np.empty(1)
+
+        t1=np.empty(1)
+        t2=np.empty(1)
+        t3=np.empty(1)
+
+        t0=time.time()
+        time_run=0
+
+        self.api_session.sync()
+
+        while True:
+            temp=self.api_session.poll(time_exp, 500,0x0001,True)
+            try:
+
+            #############################
+            # Data stream
+            #############################
+                R1=np.sqrt(np.square(temp[self.S1_name+'sample']['x'])+np.square(temp[self.S1_name+'sample']['y']))
+                theta1=np.arctan2(temp[self.S1_name+'sample']['x'],temp[self.S1_name+'sample']['y'])
+
+                R2=np.sqrt(np.square(temp[self.S2_name+'sample']['x'])+np.square(temp[self.S2_name+'sample']['y']))
+                theta2=np.arctan2(temp[self.S2_name+'sample']['x'],temp[self.S2_name+'sample']['y'])
+
+                R3=np.sqrt(np.square(temp[self.S3_name+'sample']['x'])+np.square(temp[self.S3_name+'sample']['y']))
+                theta3=np.arctan2(temp[self.S3_name+'sample']['x'],temp[self.S3_name+'sample']['y'])
+
+            #############################
+            # Timestamps stream
+            #############################
+                t1=np.append(t1,temp[self.S1_name+"sample"]['timestamp'])
+                t2=np.append(t2,temp[self.S2_name+"sample"]['timestamp'])
+                t3=np.append(t3,temp[self.S3_name+"sample"]['timestamp'])
+
+            except Exception as e: 
+                print('wtf: {}'.format(e))
+                print("It seems that the field didn't exist, loop didn't finish \n The dictonary had the following data keys:\n {} ".format(temp.keys()))
+                break
+
+            data_Source1R=np.append(data_Source1R,R1)
+            data_Source1T=np.append(data_Source1T,theta1)
+            data_Source2R=np.append(data_Source2R,R2)
+            data_Source2T=np.append(data_Source2T,theta2)
+            data_Source3R=np.append(data_Source3R,R3)
+            data_Source3T=np.append(data_Source3T,theta3)
+
+
+            time_run=time.time()-t0
+            if time_run>time_exp:
+                break
+        try:
+            t1=(t1-t1[1])/self.Timebase
+            t2=(t2-t2[1])/self.Timebase
+            t3=(t3-t3[1])/self.Timebase
+        except IndexError:
+            t1=(t1)/self.Timebase
+            t2=(t2)/self.Timebase
+            t3=(t3)/self.Timebase
+        return pd.DataFrame({'t':t1[1:],'R1_{}'.format(self.parameterDict['Name_1']):data_Source1R[1:],'Phase_{}'.format(self.parameterDict['Name_1']):data_Source1T[1:],
+                             'R2_{}'.format(self.parameterDict['Name_2']):np.interp(t1[1:],t2[1:],data_Source2R[1:]),'Phase2_{}'.format(self.parameterDict['Name_2']):np.interp(t1[1:],t2[1:],data_Source2T[1:]),
+                             'R3_{}'.format(self.parameterDict['Name_3']):np.interp(t1[1:],t3[1:],data_Source3R[1:]),'Phase2_{}'.format(self.parameterDict['Name_3']):np.interp(t1[1:],t3[1:],data_Source3T[1:])})
     
     def AcquisitionLoopLegacy(self,time_exp):
         #############################
@@ -234,5 +324,5 @@ if __name__ == "__main__":
     LockInParaFile='ParameterLockIn.txt'
 
     lock=LockInAmplifier(LockInParaFile)
-    data=lock.AcquisitionLoop(0.1)
-    print(1/data.loc[:,'R1'].mean())
+    data=lock.AcquisitionLoop3W(0.1)
+    print(data.loc[:,'R1_Reflexion'].mean())

@@ -1,8 +1,6 @@
 # Taken from https://github.com/Thorlabs/Motion_Control_Examples/blob/main/Python/KCube/KSC101/KSC101_pythonnet.py
 
-from Thorlabs.MotionControl.KCube.SolenoidCLI import *
-from Thorlabs.MotionControl.GenericMotorCLI import *
-from Thorlabs.MotionControl.DeviceManagerCLI import *
+
 import os
 import time
 import sys
@@ -15,57 +13,53 @@ clr.AddReference(
 clr.AddReference(
     "C:\\Program Files\\Thorlabs\\Kinesis\\ThorLabs.MotionControl.KCube.SolenoidCLI.dll")
 
+from Thorlabs.MotionControl.KCube.SolenoidCLI import *
+from Thorlabs.MotionControl.GenericMotorCLI import *
+from Thorlabs.MotionControl.DeviceManagerCLI import *
+class ShutterControl:
 
-def main():
-    """The main entry point for the application"""
+    def __init__(self,SN,Name):
+        try:
 
-    # Uncomment this line if you are using simulation
-    # SimulationManager.Instance.InitializeSimulations()
+            DeviceManagerCLI.BuildDeviceList()
 
-    try:
+            # create new device
+            serial_no = SN  # Replace this line with your device's serial number
 
-        DeviceManagerCLI.BuildDeviceList()
+            # Connect
+            self.device = KCubeSolenoid.CreateKCubeSolenoid(serial_no)
+            self.device.Connect(serial_no)
 
-        # create new device
-        serial_no = "68800377"  # Replace this line with your device's serial number
+            # Ensure that the device settings have been initialized
+            if not self.device.IsSettingsInitialized():
+                self.device.WaitForSettingsInitialized(10000)  # 10 second timeout
+                assert self.device.IsSettingsInitialized() is True
 
-        # Connect
-        device = KCubeSolenoid.CreateKCubeSolenoid(serial_no)
-        device.Connect(serial_no)
+            # Start polling and enable
+            self.device.StartPolling(250)  # 250ms polling rate
+            time.sleep(0.25)
+            self.device.EnableDevice()
+            time.sleep(0.5)  # Wait for device to enable
 
-        # Ensure that the device settings have been initialized
-        if not device.IsSettingsInitialized():
-            device.WaitForSettingsInitialized(10000)  # 10 second timeout
-            assert device.IsSettingsInitialized() is True
 
-        # Start polling and enable
-        device.StartPolling(250)  # 250ms polling rate
-        time.sleep(0.25)
-        device.EnableDevice()
-        time.sleep(0.5)  # Wait for device to enable
+            self.device.SetOperatingMode(SolenoidStatus.OperatingModes.Manual)
+        
+        except Exception as e:
+            print(e)
+        self.parameterDict = {'Name':Name,'{} Serial number'.format(str(Name)):SN,}
 
-        # Get Device Information and display description
-        device_info = device.GetDeviceInfo()
-        print(device_info.Description)
+    def SetOpen(self):
+        self.device.SetOperatingState(SolenoidStatus.OperatingStates.Active)
+        
+    def SetClose(self):
+        self.device.SetOperatingState(SolenoidStatus.OperatingStates.Inactive)
 
-        device.SetOperatingMode(SolenoidStatus.OperatingModes.Manual)
 
-        device.SetOperatingState(SolenoidStatus.OperatingStates.Active)
-        time.sleep(5)
-        device.SetOperatingState(SolenoidStatus.OperatingStates.Inactive)
-        time.sleep(5)
-
-        # Stop Polling and Disconnect
-        device.StopPolling()
-        device.Disconnect()
-
-    except Exception as e:
-        # this can be bad practice: It sometimes obscures the error source
-        print(e)
-
-    # Uncomment this line if you are using Simulations
-    # SimulationManager.Instance.UninitializeSimulations()
 
 
 if __name__ == "__main__":
-    main()
+    shutter=ShutterControl("68800883",'Shutter')
+    shutter.SetOpen()
+    #shutter.SetClose()
+    #time.sleep(5)
+    #shutter.SetClose()

@@ -45,6 +45,8 @@ class LaserControl:
         status = self.SerialPort.readline().decode().rstrip()
         if status=='CHAMELEON>':
             status = self.SerialPort.readline().decode().rstrip()
+        if status[-1:]=='\x03':
+                status=status[:-1]
 
         return int(status.split('>')[1])
     
@@ -64,11 +66,13 @@ class LaserControl:
         status = self.SerialPort.readline().decode().rstrip()
         if status=='CHAMELEON>':
             status = self.SerialPort.readline().decode().rstrip()
-
         try:
-            return int(status.split('>')[1])
+            status=status.split('>')[1]
+            if status[-1:]=='\x03':
+                status=status[:-1]
+            return int(status)
         except:
-            sys.exit('LaserControl error: GetStatusShutterTunable: {}'.format(status))
+            sys.exit('ControlLaser error: GetStatusShutterTunable: {}'.format(status))
         
     def GetStatusTuning(self):
         self.SerialPort.write('?TS\r\n'.encode())
@@ -76,6 +80,9 @@ class LaserControl:
         status = self.SerialPort.readline().decode().rstrip()
         if status=='CHAMELEON>':
             status = self.SerialPort.readline().decode().rstrip()
+        if status[-1:]=='\x03':
+            status=status[:-1]
+
         try:
             return int(status.split('>')[1])
         except:
@@ -99,11 +106,11 @@ class LaserControl:
         '''The status of the shutter is defined as False(0) for close and True(1) as open '''
         self.SerialPort.write("S={} \r\n".format(status).encode())
         time.sleep(self.ShutterWaitTime)
-        a=self.GetStatusShutterTunable()
-        if a==0:
-            print("The shutter for the tunable output is closed")
-        if a==1:
-            print("The shutter for the tunable output is opened")
+        #a=self.GetStatusShutterTunable()
+        #if a==0:
+        #    print("The shutter for the tunable output is closed")
+        #if a==1:
+        #    print("The shutter for the tunable output is opened")
 
     def WaitForTuning(self):
         status=self.GetStatusTuning()
@@ -123,6 +130,8 @@ class LaserControl:
     def GetStatusShutterFixed(self):
         self.SerialPort.write("?SFIXED\r\n".encode())
         status = self.SerialPort.readline().decode().rstrip().split('>')[1]
+        if status[-1:]=='\x03':
+            status=status[:-1]
         return int(status)
     
     def StatusShutterFixed(self,status):
@@ -147,9 +156,9 @@ if __name__ == "__main__":
     Laser= LaserControl('COM8','COM17',2)
     print(Laser.GetWavelength())
 
-    Laser.SetStatusShutterTunable(1)
+    #Laser.SetStatusShutterTunable(1)
     Laser.SetWavelengthTunable(450)
     Laser.WaitForTuning()
-    #Laser.GetStatusShutterTunable()
+    Laser.SetStatusShutterTunable(0)
 
     #Laser.WaitForTuning()
