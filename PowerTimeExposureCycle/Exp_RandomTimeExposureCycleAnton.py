@@ -1,14 +1,15 @@
-USE_DUMMY = False
-import os
-import sys
-os.system('cls')
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) 
-
-import numpy as np
-import pandas as pd
-import glob
-import random 
+import random
+import FileControl
 import spe_loader as sl
+import glob
+import pandas as pd
+import numpy as np
+import sys
+import os
+USE_DUMMY = False
+os.system('cls')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 if USE_DUMMY:
     import ControlDummy as shutter
@@ -28,23 +29,27 @@ else:
     import ControlPiezoStage as Transla
     import time as time
 
-import FileControl
 
 #############################
 # Custom function
 #############################
+
 def ParameterRead(ParameterFile):
-    ParameterList={}
-    with open(ParameterFile,'r') as ParaFile:
+    ParameterList = {}
+    with open(ParameterFile, 'r') as ParaFile:
         for line in ParaFile:
-            if line[0]!= '#':
+            if line[0] != '#':
                 try:
-                    ParameterList[line[0:line.index('=')]]=line[line.index('=')+1:].strip()
+                    ParameterList[line[0:line.index(
+                        '=')]] = line[line.index('=')+1:].strip()
                 except ValueError:
                     pass
     return ParameterList
+
+
 def DistanceTwoPoint(pointA, pointB):
     return np.sqrt(np.sum((pointA - pointB)**2, axis=0))
+
 
 def DistanceArray(pointA, pointsB):
     return np.sqrt(np.sum((pointA - pointsB)**2, axis=1))
@@ -53,15 +58,17 @@ def DistanceArray(pointA, pointsB):
 #
 #############################
 
+
 class timeTraceRunner:
     def __init__(self, **kwargs):
         self.GeneralPara = kwargs
         if 'Nb_points' not in self.GeneralPara:
-            raise ValueError('Parameters must contain the number of points [\'Nb_points\']')
+            raise ValueError(
+                'Parameters must contain the number of points [\'Nb_points\']')
         self.Nb_Points = GeneralPara['Nb_points']
 
-    def initialize(self, start_x, end_x, start_y, end_y, BeamRadius,FileDir):
-        self.initializePiezo(start_x, end_x, start_y, end_y,BeamRadius)
+    def initialize(self, start_x, end_x, start_y, end_y, BeamRadius, FileDir):
+        self.initializePiezo(start_x, end_x, start_y, end_y, BeamRadius)
         self.initializeInstruments()
         self.initializeConex()
         self.initializeOutputDirectory(FileDir)
@@ -69,46 +76,60 @@ class timeTraceRunner:
     #############################
     # Piezo parameter
     #############################
-    
-    def initializePiezo(self, start_x, end_x, start_y, end_y,BeamRadius):
-        if start_x==end_x:
+
+    def initializePiezo(self, start_x, end_x, start_y, end_y, BeamRadius):
+        '''This function generate a list of point that is going to be used by the piezo. 
+        We first start by generateting either an array or a line of point depanding on the
+         starting parameter. Then the point or randomy shuffled and checked if each succesive one 
+         is not within  BeamRadius of each other. If it is then it get the one closest one which is not.'''
+
+        # Generating line or array linearly spaced
+        if start_x == end_x:
             x = np.array([start_x])
             y = np.linspace(start_y, end_y, int(Nb_Points))
-        elif start_y==end_y:
+        elif start_y == end_y:
             y = np.array([start_y])
             x = np.linspace(start_x, end_x, int(Nb_Points))
         else:
             x = np.linspace(start_x, end_x, int(np.floor(np.sqrt(Nb_Points))))
             y = np.linspace(start_y, end_y, int(np.ceil(np.sqrt(Nb_Points))))
+
         X, Y = np.meshgrid(x, y)
+
         self.Pos = np.stack([X.ravel(), Y.ravel()], axis=-1)
-        index=random.sample(range(0, self.Pos.shape[0]), self.Pos.shape[0])
-        self.Pos=self.Pos[index,:]
-        self.GeneralPara['Nb_points']=self.Pos.shape[0]
+
+        # Randomly shuffle position
+        index = random.sample(range(0, self.Pos.shape[0]), self.Pos.shape[0])
+        self.Pos = self.Pos[index, :]
+
+        # Avoid point which are too close too each other
+        PosFiltered = np.empty(self.Pos.shape)
+        for index in range(self.Nb_Points):
+            if index == 0:
+                PosFiltered[index, :] = self.Pos[0, :]
+                self.Pos = np.delete(self.Pos, 0, 0)
+            else:
+                if DistanceTwoPoint(PosFiltered[index-1, :], self.Pos[0, :]) < BeamRadius:
+                    a = np.argmax(DistanceArray(
+                        PosFiltered[index-1, :], self.Pos) > BeamRadius)
+                    PosFiltered[index, :] = self.Pos[a, :]
+                    self.Pos = np.delete(self.Pos, a, 0)
+                    if a == 0:
+                        print(
+                            'Could not find a point not within the beam avoidance radius.')
+                else:
+                    PosFiltered[index, :] = self.Pos[0, :]
+                    self.Pos = np.delete(self.Pos, 0, 0)
+
+        self.Pos = PosFiltered
+        self.GeneralPara['Nb_points'] = self.Pos.shape[0]
         self.Nb_Points = self.Pos.shape[0]
 
-        PosFiltered=np.empty(self.Pos.shape)
-        for index in range(self.Nb_Points):
-            if index==0:
-                PosFiltered[index,:]=self.Pos[0,:]
-                self.Pos=np.delete(self.Pos,0,0)
-            else:
-                if DistanceTwoPoint(PosFiltered[index-1,:],self.Pos[0,:])<BeamRadius:            
-                    a=np.argmax(DistanceArray(PosFiltered[index-1,:],self.Pos)>BeamRadius)
-                    PosFiltered[index,:]=self.Pos[a,:]
-                    self.Pos=np.delete(self.Pos,a,0)
-                    if a==0:
-                        print('Could not find a point not within the beam avoidance radius.')
-                else:
-                    PosFiltered[index,:]=self.Pos[0,:]
-                    self.Pos=np.delete(self.Pos,0,0)
-    
-        self.Pos=PosFiltered
         try:
-            print('Number of Points:{}-{}\nDistance between points:\n\t x ={} \n\t y ={}'.format(self.Nb_Points,self.Pos.shape[0],x[1]-x[0], y[1]-y[0]))
+            print('Number of Points:{}-{}\nDistance between points:\n\t x ={} \n\t y ={}'.format(
+                self.Nb_Points, self.Pos.shape[0], x[1]-x[0], y[1]-y[0]))
         except IndexError:
             print('Number of Points:{}\n'.format(self.Pos.shape[0]))
-
 
     def initializeInstruments(self):
         self.InstrumentsPara = {}
@@ -123,7 +144,8 @@ class timeTraceRunner:
         #############################
         # Initialisation of pulse picker
         #############################
-        self.pp = picker.PulsePicker("USB0::0x0403::0xC434::S09748-10A7::INSTR")
+        self.pp = picker.PulsePicker(
+            "USB0::0x0403::0xC434::S09748-10A7::INSTR")
         self.InstrumentsPara['Pulse picker'] = self.pp.parameterDict
         print('Initialised pulse picker')
 
@@ -134,18 +156,22 @@ class timeTraceRunner:
         self.FrameTime = self.camera.GetFrameTime()
         self.ExposureTime = self.camera.GetExposureTime()
         self.NumberOfFrame = self.camera.GetNumberOfFrame()
-        #self.camera.SetEMGain(1)
+        # self.camera.SetEMGain(1)
         self.InstrumentsPara['PI EMCCD'] = self.camera.parameterDict
         print('Initialised EMCCD')
 
         #############################
         # Initialisation of the shutter
         #############################
-        self.FM = ThorlabsShutter.ShutterControl("68800883",'Shutter')
-        self.FM_ND = shutter.FlipMount("37007725",'ND1') # state 1 is the one with the ND
-        self.FilterWheel=FilterWheel.FilterWheel('COM18')
-        self.InstrumentsPara['FlipMount']=self.FM.parameterDict | self.FM_ND.parameterDict
-        print('Initialised Flip mount')
+        self.FM = ThorlabsShutter.ShutterControl("68800883", 'Shutter')
+        # state 1 is the one with the ND
+        self.FM_ND = shutter.FlipMount("37007725", 'ND1')
+        self.InstrumentsPara['FlipMount'] = self.FM.parameterDict | self.FM_ND.parameterDict
+
+        self.FilterWheel = FilterWheel.FilterWheel('COM18')
+        self.InstrumentsPara['FilterWheel'] = self.FilterWheel.parameterDict
+
+        print('Initialised Flip mount and Filter wheel')
 
     #############################
     # Initialisation of the Conex Controller
@@ -157,8 +183,8 @@ class timeTraceRunner:
             print('Initialised rough translation stage')
         elif 'ControlPiezoStage' in sys.modules or USE_DUMMY:
             piezo = Transla.PiezoControl('COM15')
-            self.x_axis = Transla.PiezoAxisControl(piezo, 'y',3)
-            self.y_axis = Transla.PiezoAxisControl(piezo, 'z',3)
+            self.x_axis = Transla.PiezoAxisControl(piezo, 'y', 3)
+            self.y_axis = Transla.PiezoAxisControl(piezo, 'z', 3)
             print('Initialised piezo translation stage')
 
     #############################
@@ -166,21 +192,20 @@ class timeTraceRunner:
     #############################
     def initializeOutputDirectory(self, path):
         print('Directory staging, please check other window')
-        #out_dir = path
-        #if USE_DUMMY:
+        # out_dir = path
+        # if USE_DUMMY:
         #    out_dir = path + '/output-dummy'
-        #if(not os.path.isdir(out_dir)):
+        # if(not os.path.isdir(out_dir)):
         #    os.makedirs(out_dir)
-        self.DirectoryPath = FileControl.PrepareDirectory(self.GeneralPara, self.InstrumentsPara)
+        self.DirectoryPath = FileControl.PrepareDirectory(
+            self.GeneralPara, self.InstrumentsPara)
         pd.DataFrame(self.Pos).to_csv(self.DirectoryPath+'/Position.csv')
-        #self.camera.SetSaveDirectory(self.DirectoryPath.replace('/',"\\"))
 
     #############################
     # TimeTrace loop
     #############################
-    def runTimeTrace(self,StabilityTime_Begin,StabilityTime_Reset,StabilityTime_End,
-                            PowerProbePulsePicker,EmGainProbe, sample_parameters):
-        
+    def runTimeTrace(self, StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
+                     PowerProbePulsePicker, EmGainProbe, sample_parameters):
         '''The parameters are the following: 
         -df_t_cyc: list of the random time selected for one cycle
         -df_p_cyc: list of the random power selected for one cycle
@@ -203,12 +228,12 @@ class timeTraceRunner:
             print('Measurement number:{}'.format(MesNumber[IteratorMes.index]))
             TempDirPath = self.DirectoryPath+'/Mes'+str(MesNumber[IteratorMes.index])+'x='+str(np.round(
                 self.Pos[IteratorMes.index, 0], 2))+'y='+str(np.round(self.Pos[IteratorMes.index, 1], 2))
-            
-            if(not os.path.isdir(TempDirPath)):
+
+            if (not os.path.isdir(TempDirPath)):
                 os.mkdir(TempDirPath)
 
-            self.camera.SetSaveDirectory(TempDirPath.replace('/',"\\"))
-            
+            self.camera.SetSaveDirectory(TempDirPath.replace('/', "\\"))
+
             self.x_axis.MoveTo(self.Pos[IteratorMes.index, 0])
             self.y_axis.MoveTo(self.Pos[IteratorMes.index, 1])
 
@@ -216,28 +241,31 @@ class timeTraceRunner:
             t_cyc = sample_parameters[MesNumber[IteratorMes.index]]['t_cyc']
             p_cyc = sample_parameters[MesNumber[IteratorMes.index]]['p_cyc']
             p_cyc_calib = sample_parameters[k]['p_cyc_calib']
-            assert(len(t_cyc) == len(p_cyc) == len(p_cyc_calib) == Nb_Cycle)
+            assert (len(t_cyc) == len(p_cyc) == len(p_cyc_calib) == Nb_Cycle)
 
             T_tot = np.sum(t_cyc)
 
             # Camera setting adjustement
-            NbFrameCycle = NbFrameCycle = np.ceil((T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset+3.6)/self.FrameTime)# the 3.6 is due to the filter whell moving
+            # the 3.6 is due to the filter whell moving
+            NbFrameCycle = NbFrameCycle = np.ceil(
+                (T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset+3.6)/self.FrameTime)
             self.camera.SetNumberOfFrame(NbFrameCycle)
             print('Time cycle:{}'.format(t_cyc.tolist()))
             print('Power cycle:{}'.format(p_cyc.tolist()))
             print('Real Power cycle:{}'.format(p_cyc_calib.tolist()))
-            print('Total time={}'.format(T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset))
+            print('Total time={}'.format(T_tot+StabilityTime_Begin +
+                  StabilityTime_End+StabilityTime_Reset))
 
-            #Create timing parameter
-            t_sync=np.zeros(len(t_cyc))
-            if EmGainProbe!=0:
+            # Create timing parameter
+            t_sync = np.zeros(len(t_cyc))
+            if EmGainProbe != 0:
                 self.camera.SetEMGain(EmGainProbe)
             self.FM_ND.ChangeState(1)
             self.FilterWheel.set_position(1)
-            self.FM.SetOpen()  
-            self.camera.Acquire()# Launch acquisition
-            
-            t0=time.time()
+            self.FM.SetOpen()
+            self.camera.Acquire()  # Launch acquisition
+
+            t0 = time.time()
 
             ###############
             # Stability time beginning
@@ -245,7 +273,7 @@ class timeTraceRunner:
             print('Stability time beginning')
             self.pp.SetPower(PowerProbePulsePicker)
             time.sleep(StabilityTime_Begin)
-            if EmGainProbe!=0:
+            if EmGainProbe != 0:
                 self.camera.SetEMGain(EmGainProbe)
 
             ###############
@@ -259,31 +287,31 @@ class timeTraceRunner:
             self.FM.SetOpen()
 
             #############################
-            #Power/Time  iteration
+            # Power/Time  iteration
             #############################
-                
+
             for j in IteratorCyc:
-                print('Cycle {}: P={},t={}'.format(IteratorCyc.index,p_cyc[IteratorCyc.index],t_cyc[IteratorCyc.index]))
+                print('Cycle {}: P={},t={}'.format(IteratorCyc.index,
+                      p_cyc[IteratorCyc.index], t_cyc[IteratorCyc.index]))
                 if p_cyc[IteratorCyc.index] == 0:
                     self.FM.SetClose()
                 elif p_cyc[IteratorCyc.index] != 0:
                     self.FM.SetOpen()
                     self.pp.SetPower(p_cyc_calib[IteratorCyc.index])
-                t_sync[IteratorCyc.index]=time.time()-t0
+                t_sync[IteratorCyc.index] = time.time()-t0
                 time.sleep(t_cyc[IteratorCyc.index])
             IteratorCyc.reset()
             self.FilterWheel.set_position(1)
-            
+
             #############################
-            # Stability time at the end 
+            # Stability time at the end
             #############################
 
-            
             print('Stability Time end')
             self.FM.SetOpen()
             self.FM_ND.ChangeState(1)
             self.pp.SetPower(PowerProbePulsePicker)
-            if EmGainProbe!=0:
+            if EmGainProbe != 0:
                 self.camera.SetEMGain(EmGainProbe)
             self.camera.WaitForAcq()
 
@@ -292,12 +320,12 @@ class timeTraceRunner:
             #############################
             self.FM_ND.ChangeState(0)
             self.FM.SetClose()
-            if EmGainProbe!=0:
+            if EmGainProbe != 0:
                 self.camera.SetEMGain(1)
 
             # Save all the cycle in the folder
             temp = pd.DataFrame(
-                {'Exposure Time': t_cyc.tolist(), 'Power send': p_cyc.tolist(), 'Power Pulse-picker': p_cyc_calib.tolist(),'Sync':t_sync})
+                {'Exposure Time': t_cyc.tolist(), 'Power send': p_cyc.tolist(), 'Power Pulse-picker': p_cyc_calib.tolist(), 'Sync': t_sync})
             temp.to_csv(TempDirPath+'/Cycle.csv')
 
         self.Laser.SetStatusShutterTunable(0)
@@ -308,7 +336,7 @@ def generateRandomParameters(Nb_Points, Nb_Cycle):
     which define the cycle with the time of exposure, the power send to the sample 
     and the power from the pulse picker and a fittness attribute. The parameter are then the number of points and the number
     of step in a cycle.  '''
-    
+
     ##############################################################
     # Parameter space and random choice
     ##############################################################
@@ -322,8 +350,9 @@ def generateRandomParameters(Nb_Points, Nb_Cycle):
     # Proba density function Power
     ###################
     P = (0, 4.4, 10, 100, 200)  # power in uW
-    #Value to reach on the powermeter (0,11,25,240,475)uW
-    P_calib = (500, 500, 800, 2100, 2800)  # Power from the pp to reach values of P #20MHz
+    # Value to reach on the powermeter (0,11,25,240,475)uW
+    # Power from the pp to reach values of P #20MHz
+    P_calib = (500, 500, 800, 2100, 2800)
     p1 = [0.2, 0.2, 0.2, 0.2, 0.2]
     ProbaP = p1
 
@@ -339,41 +368,46 @@ def generateRandomParameters(Nb_Points, Nb_Cycle):
     for k in range(Nb_Points):
         df = pd.DataFrame()
         df.fitness = -1
-    
+
         # Intensity/Power Cycle generation
         df['t_cyc'] = rng.choice(t, Nb_Cycle, p=ProbaT)
         # First we generate an array of cycle which only contains index for the moment
-        temp = rng.choice(np.linspace(0, len(P), len(P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
+        temp = rng.choice(np.linspace(0, len(P), len(
+            P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
         while temp[0] == 0:  # We assume that the first element of P is the zero power element
-            temp = rng.choice(np.linspace(0, len(P), len(P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
+            temp = rng.choice(np.linspace(0, len(P), len(
+                P), endpoint=False, dtype=int), Nb_Cycle, p=ProbaP)
         df['p_cyc_calib'] = np.array([P_calib[i] for i in temp])
         df['p_cyc'] = np.array([P[i] for i in temp])
         population.append(df)
 
     return population
 
-def evaluateFitnessValues(population,FileDir,FolderCalibWavelength,Spectrograph_Center,Time_Min,Time_Max,Observable):
+
+def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrograph_Center, Time_Min, Time_Max, Observable):
     if USE_DUMMY:
         for solution in population:
             solution.fitness = np.sum(solution['t_cyc'])
-            #f = 0
-            #for i in range(len(solution['t_cyc'])):
+            # f = 0
+            # for i in range(len(solution['t_cyc'])):
             #    if solution['t_cyc'][i] == 0.1:
             #        f += 1
             #    else:
             #        break
-            #solution.fitness = f
+            # solution.fitness = f
         return
 
     # Load experimental data
-    DataTot, CycleStore,Nb_pts = LoadDataFromFiles(FileDir,FolderCalibWavelength,Spectrograph_Center)
+    DataTot, CycleStore, Nb_pts = LoadDataFromFiles(
+        FileDir, FolderCalibWavelength, Spectrograph_Center)
     assert len(population) == Nb_pts
-    
+
     # Load experimental settings
-    Pos, p_cyc, TimeCycle, TimeSync,t_globalSync,StabilityTime_begin,StabilityTime_reset,StabilityTime_end = loadExperimentInfo(CycleStore, Nb_pts,FileDir)
+    Pos, p_cyc, TimeCycle, TimeSync, t_globalSync, StabilityTime_begin, StabilityTime_reset, StabilityTime_end = loadExperimentInfo(
+        CycleStore, Nb_pts, FileDir)
 
-    M_all=pd.DataFrame(index=range(Nb_pts),columns=['Enhancement','error','S1','S2'])
-
+    M_all = pd.DataFrame(index=range(Nb_pts), columns=[
+                         'Enhancement', 'error', 'S1', 'S2'])
 
     # Compute fitnesses
     fitness_values = np.zeros(Nb_pts)
@@ -382,156 +416,182 @@ def evaluateFitnessValues(population,FileDir,FolderCalibWavelength,Spectrograph_
         # The way the timing work is the following. The first timestamp  correspond to the time between the first spectra and the second step in a sequence.
         # So if the StabilityTime_begin=10,StabilityTime_reset=10 and the first step is 1s then the first timestamp will occur at t[0]=21s
         # All other Timestamp occurs at each step of the cycles
-        ts_end=np.argmin(np.abs(DataTot.index-t_globalSync-StabilityTime_end))
-        ts_begin=np.argmin(np.abs(DataTot.index-StabilityTime_begin))
+        ts_end = np.argmin(
+            np.abs(DataTot.index-t_globalSync-StabilityTime_end))
+        ts_begin = np.argmin(np.abs(DataTot.index-StabilityTime_begin))
 
-        #We then cut the data accordingly and put them on the samereference frame i.e time between zero and he end of their associated stability time
-        dataFit_End=DataTot.loc[i,:,:].loc[DataTot.loc[i,:,:].index>DataTot.loc[i,:,:].index[ts_end],:]
-        dataFit_End=pd.DataFrame(dataFit_End.to_numpy(),index=(dataFit_End.index[-1]-dataFit_End.index)[::-1],columns=dataFit_End.columns)
-        dataFit_Begin=DataTot.loc[i,:,:].loc[DataTot.loc[i,:,:].index<DataTot.loc[i,:,:].index[ts_begin],:]
+        # We then cut the data accordingly and put them on the samereference frame i.e time between zero and he end of their associated stability time
+        dataFit_End = DataTot.loc[i, :, :].loc[DataTot.loc[i,
+                                                           :, :].index > DataTot.loc[i, :, :].index[ts_end], :]
+        dataFit_End = pd.DataFrame(dataFit_End.to_numpy(), index=(
+            dataFit_End.index[-1]-dataFit_End.index)[::-1], columns=dataFit_End.columns)
+        dataFit_Begin = DataTot.loc[i, :, :].loc[DataTot.loc[i,
+                                                             :, :].index < DataTot.loc[i, :, :].index[ts_begin], :]
 
         ##########################
-        # Use rolling mean to remove noise 
+        # Use rolling mean to remove noise
         ##########################
-        print('{}/{} Rolling mean computation'.format(i+1,Nb_pts))
-        FitDataResult_End = pd.DataFrame(index=dataFit_End.index,columns=dataFit_End.columns)
+        print('{}/{} Rolling mean computation'.format(i+1, Nb_pts))
+        FitDataResult_End = pd.DataFrame(
+            index=dataFit_End.index, columns=dataFit_End.columns)
         for j in dataFit_End.index:
-            FitDataResult_End.loc[j,:]=dataFit_End.loc[j,:].rolling(10,min_periods=1).mean()
-        FitDataResult_End['Mes']=i
-        FitAll_End=pd.concat([FitAll_End,FitDataResult_End],axis=0)
-            
+            FitDataResult_End.loc[j, :] = dataFit_End.loc[j, :].rolling(
+                10, min_periods=1).mean()
+        FitDataResult_End['Mes'] = i
+        FitAll_End = pd.concat([FitAll_End, FitDataResult_End], axis=0)
 
-        FitDataResult_Begin = pd.DataFrame(index=dataFit_Begin.index,columns=dataFit_Begin.columns)
+        FitDataResult_Begin = pd.DataFrame(
+            index=dataFit_Begin.index, columns=dataFit_Begin.columns)
         for j in dataFit_Begin.index:
-            FitDataResult_Begin.loc[j,:]=dataFit_Begin.loc[j,:].rolling(10,min_periods=1).mean()
-        FitDataResult_Begin['Mes']=i
-        FitAll_Begin=pd.concat([FitAll_Begin,FitDataResult_Begin],axis=0)
-        
+            FitDataResult_Begin.loc[j, :] = dataFit_Begin.loc[j, :].rolling(
+                10, min_periods=1).mean()
+        FitDataResult_Begin['Mes'] = i
+        FitAll_Begin = pd.concat([FitAll_Begin, FitDataResult_Begin], axis=0)
+
         ##########################
         # Interpolate to the same timescale
         ##########################
 
-        print('{}/{} Interpolation to the same timebase'.format(i+1,Nb_pts))
-        if (dataFit_End.index[-1]-dataFit_End.index[0])>(dataFit_Begin.index[-1]-dataFit_Begin.index[0]):
-            time_int=np.abs(dataFit_Begin.index-dataFit_Begin.index[-1])[::-1]
-            dataTemp_Interp=pd.DataFrame(FitDataResult_End.iloc[:,:-2],dtype='float64')
-            dataFit_interp2=pd.DataFrame(np.interp(time_int,
-                                    dataTemp_Interp.loc[(dataTemp_Interp.index)<=time_int[-1],:].index,
-                                    dataTemp_Interp.loc[dataTemp_Interp.index<=time_int[-1],:].max(axis=1)),index=time_int)
-            dataFit_interp1=pd.DataFrame(FitDataResult_Begin.max(axis=1).to_numpy(),index=time_int)
+        print('{}/{} Interpolation to the same timebase'.format(i+1, Nb_pts))
+        if (dataFit_End.index[-1]-dataFit_End.index[0]) > (dataFit_Begin.index[-1]-dataFit_Begin.index[0]):
+            time_int = np.abs(dataFit_Begin.index -
+                              dataFit_Begin.index[-1])[::-1]
+            dataTemp_Interp = pd.DataFrame(
+                FitDataResult_End.iloc[:, :-2], dtype='float64')
+            dataFit_interp2 = pd.DataFrame(np.interp(time_int,
+                                                     dataTemp_Interp.loc[(
+                                                         dataTemp_Interp.index) <= time_int[-1], :].index,
+                                                     dataTemp_Interp.loc[dataTemp_Interp.index <= time_int[-1], :].max(axis=1)), index=time_int)
+            dataFit_interp1 = pd.DataFrame(
+                FitDataResult_Begin.max(axis=1).to_numpy(), index=time_int)
         else:
-            time_int=np.abs(dataFit_End.index-dataFit_End.index[-1])[::-1]
-            dataTemp_Interp=pd.DataFrame(FitDataResult_Begin.iloc[:,:-2],dtype='float64')
-            dataFit_interp1=np.interp(time_int,
-                                    dataTemp_Interp.loc[dataTemp_Interp.index<=time_int[-1],:].index,
-                                    dataTemp_Interp.loc[dataTemp_Interp.index<=time_int[-1],:].max(axis=1))
-            dataFit_interp2=pd.DataFrame(FitDataResult_Begin.max(axis=1).to_numpy(),index=time_int)
-        
-        M_all.loc[i,'EnhancementTime']=[dataFit_interp2.div(dataFit_interp1,axis=0)]
-        M_all.loc[i,'S1']=[dataFit_interp1]
-        M_all.loc[i,'S2']=[dataFit_interp2]
-        M_all.loc[i,'error']=dataFit_interp2.div(dataFit_interp1).std(axis=0).to_numpy()
+            time_int = np.abs(dataFit_End.index-dataFit_End.index[-1])[::-1]
+            dataTemp_Interp = pd.DataFrame(
+                FitDataResult_Begin.iloc[:, :-2], dtype='float64')
+            dataFit_interp1 = np.interp(time_int,
+                                        dataTemp_Interp.loc[dataTemp_Interp.index <=
+                                                            time_int[-1], :].index,
+                                        dataTemp_Interp.loc[dataTemp_Interp.index <= time_int[-1], :].max(axis=1))
+            dataFit_interp2 = pd.DataFrame(
+                FitDataResult_Begin.max(axis=1).to_numpy(), index=time_int)
 
+        M_all.loc[i, 'EnhancementTime'] = [
+            dataFit_interp2.div(dataFit_interp1, axis=0)]
+        M_all.loc[i, 'S1'] = [dataFit_interp1]
+        M_all.loc[i, 'S2'] = [dataFit_interp2]
+        M_all.loc[i, 'error'] = dataFit_interp2.div(
+            dataFit_interp1).std(axis=0).to_numpy()
 
-        if Observable=='M2':
-            fitness_values[i] =(M_all.loc[j,'S2'][0].loc[(M_all.loc[j,'S2'][0].index>Time_Min) & (M_all.loc[j,'S2'][0].index<Time_Max),0]
-                            /M_all.loc[j,'S1'][0].loc[(M_all.loc[j,'S1'][0].index>Time_Min) & (M_all.loc[j,'S1'][0].index<Time_Max),0]).mean()
-        elif Observable=='M1':
-            fitness_values[i] =(M_all.loc[j,'S2'][0].loc[(M_all.loc[j,'S2'][0].index>Time_Min) & (M_all.loc[j,'S2'][0].index<Time_Max),0]
-                            -M_all.loc[j,'S1'][0].loc[(M_all.loc[j,'S1'][0].index>Time_Min) & (M_all.loc[j,'S1'][0].index<Time_Max),0]).mean()
+        if Observable == 'M2':
+            fitness_values[i] = (M_all.loc[j, 'S2'][0].loc[(M_all.loc[j, 'S2'][0].index > Time_Min) & (M_all.loc[j, 'S2'][0].index < Time_Max), 0]
+                                 / M_all.loc[j, 'S1'][0].loc[(M_all.loc[j, 'S1'][0].index > Time_Min) & (M_all.loc[j, 'S1'][0].index < Time_Max), 0]).mean()
+        elif Observable == 'M1':
+            fitness_values[i] = (M_all.loc[j, 'S2'][0].loc[(M_all.loc[j, 'S2'][0].index > Time_Min) & (M_all.loc[j, 'S2'][0].index < Time_Max), 0]
+                                 - M_all.loc[j, 'S1'][0].loc[(M_all.loc[j, 'S1'][0].index > Time_Min) & (M_all.loc[j, 'S1'][0].index < Time_Max), 0]).mean()
         population[i].fitness = fitness_values[i]
-     
+
     print("# FITNESS VALUES #")
     print(fitness_values)
 
-def get_best_solution( candidates ):
+
+def get_best_solution(candidates):
     best_ind = np.argmax([ind.fitness for ind in candidates])
     return candidates[best_ind]
 
-def tournamentSelection(selection_pool, tournament_size = 4):
+
+def tournamentSelection(selection_pool, tournament_size=4):
     selected = []
     number_of_rounds = tournament_size//2
     for i in range(number_of_rounds):
         number_of_tournaments = len(selection_pool)//tournament_size
         order = np.random.permutation(len(selection_pool)).tolist()
         for j in range(number_of_tournaments):
-            tournament_pool = [selection_pool[i] for i in order[tournament_size*j:tournament_size*(j+1)]]
+            tournament_pool = [selection_pool[i]
+                               for i in order[tournament_size*j:tournament_size*(j+1)]]
             best = get_best_solution(tournament_pool)
             selected.append(best)
     return selected
 
+
 def twoPointCrossOver(parent_a, parent_b):
     l = len(parent_a['t_cyc'])
     offspring_a = pd.DataFrame()
-    offspring_b = pd.DataFrame()    
-    m = (np.arange(l) < np.random.randint(l+1)) ^ (np.arange(l) < np.random.randint(l+1))
+    offspring_b = pd.DataFrame()
+    m = (np.arange(l) < np.random.randint(l+1)
+         ) ^ (np.arange(l) < np.random.randint(l+1))
     properties = ['t_cyc', 'p_cyc', 'p_cyc_calib']
     for prop in properties:
         offspring_a[prop] = np.where(m, parent_a[prop], parent_b[prop])
-        offspring_b[prop] = np.where(~m, parent_a[prop], parent_b[prop])    
+        offspring_b[prop] = np.where(~m, parent_a[prop], parent_b[prop])
     return [offspring_a, offspring_b]
+
 
 def makeOffspring(population):
     offspring = []
     order = np.random.permutation(len(population))
-    for i in range(len(order)//2): 
-        offsprings = twoPointCrossOver(population[order[2*i]],population[order[2*i+1]])
+    for i in range(len(order)//2):
+        offsprings = twoPointCrossOver(
+            population[order[2*i]], population[order[2*i+1]])
         offspring = offspring + offsprings
     return offspring
 
-def loadExperimentInfo(CycleStore, Nb_pts,FileDir):
+
+def loadExperimentInfo(CycleStore, Nb_pts, FileDir):
 
     #############################
     # Reading global parameters
     #############################
-    para=ParameterRead(FileDir+'/ExperimentParameter.txt')
-    
+    para = ParameterRead(FileDir+'/ExperimentParameter.txt')
+
     # We asssume that we probe with a single frequency
-    StabilityTime_begin=float(para['Stability time begin '])
-    StabilityTime_reset=float(para['Stability time reset'])
-    StabilityTime_end=float(para['Stability time end '])
- 
+    StabilityTime_begin = float(para['Stability time begin '])
+    StabilityTime_reset = float(para['Stability time reset'])
+    StabilityTime_end = float(para['Stability time end '])
 
     #############################
     # Reading cycle info
     #############################
 
-    p_cyc=pd.DataFrame(index=range(10), columns=range(Nb_pts))
-    TimeSync=pd.DataFrame(index=range(10), columns=range(Nb_pts))
-    TimeCycle=pd.DataFrame(index=range(10), columns=range(Nb_pts))
-    t_globalSync=pd.Series(TimeSync.iloc[-1,:],index=range(Nb_pts))
+    p_cyc = pd.DataFrame(index=range(10), columns=range(Nb_pts))
+    TimeSync = pd.DataFrame(index=range(10), columns=range(Nb_pts))
+    TimeCycle = pd.DataFrame(index=range(10), columns=range(Nb_pts))
+    t_globalSync = pd.Series(TimeSync.iloc[-1, :], index=range(Nb_pts))
 
     for i in range(Nb_pts):
-        if i==0:
-            p_cyc.iloc[:,i]=CycleStore.loc[:,'Power send']
-            TimeCycle.iloc[:,i]=CycleStore.loc[:,'Exposure Time']
-            TimeSync.iloc[:,i]=CycleStore.loc[:,'Sync']
+        if i == 0:
+            p_cyc.iloc[:, i] = CycleStore.loc[:, 'Power send']
+            TimeCycle.iloc[:, i] = CycleStore.loc[:, 'Exposure Time']
+            TimeSync.iloc[:, i] = CycleStore.loc[:, 'Sync']
 
         else:
-            p_cyc.iloc[:,i]=CycleStore.loc[:,'Power send.{}'.format(i)]
-            TimeCycle.iloc[:,i]=CycleStore.loc[:,'Exposure Time.{}'.format(i)]
-            TimeSync.iloc[:,i]=CycleStore.loc[:,'Sync.{}'.format(i)]
-        t_globalSync[i]=t_globalSync[i]+TimeCycle.iloc[-1,i]
+            p_cyc.iloc[:, i] = CycleStore.loc[:, 'Power send.{}'.format(i)]
+            TimeCycle.iloc[:, i] = CycleStore.loc[:,
+                                                  'Exposure Time.{}'.format(i)]
+            TimeSync.iloc[:, i] = CycleStore.loc[:, 'Sync.{}'.format(i)]
+        t_globalSync[i] = t_globalSync[i]+TimeCycle.iloc[-1, i]
 
-    Pos=pd.read_csv(FileDir+'/Position.csv').iloc[:,1:].to_numpy()
+    Pos = pd.read_csv(FileDir+'/Position.csv').iloc[:, 1:].to_numpy()
 
-    return Pos, p_cyc, TimeCycle, TimeSync,t_globalSync,StabilityTime_begin,StabilityTime_reset,StabilityTime_end
-    
-def LoadDataFromFiles(FileDir,FolderCalibWavelength,WaveCenter):
+    return Pos, p_cyc, TimeCycle, TimeSync, t_globalSync, StabilityTime_begin, StabilityTime_reset, StabilityTime_end
+
+
+def LoadDataFromFiles(FileDir, FolderCalibWavelength, WaveCenter):
     try:
         temp = pd.read_csv(FolderCalibWavelength, sep='\t', decimal=',')
         print('Reading wavelength calibraton at : {}'.format(FolderCalibWavelength))
         a = temp.loc[:, 'a'].to_numpy()
         b = temp.loc[:, 'b'].to_numpy()
     except:
-        print('Problem reading wavelength calibraton at : {}\n Taking default value'.format(FolderCalibWavelength))
+        print('Problem reading wavelength calibraton at : {}\n Taking default value'.format(
+            FolderCalibWavelength))
         a = 2.354381287460651
         b = 490.05901104995587
     PixelNumber = np.linspace(1, 1024, 1024)
     CenterPixel = WaveCenter
     Wavelength = (PixelNumber-b)/a+CenterPixel
 
-    Folder = sorted(glob.glob(FileDir+'/Mes*'), key=lambda x: float(x[x.find('Mes')+3:x.find('x')]))
+    Folder = sorted(glob.glob(FileDir+'/Mes*'),
+                    key=lambda x: float(x[x.find('Mes')+3:x.find('x')]))
     CycleStore = pd.DataFrame()
     DataTot = []
     for j in range(len(Folder)):
@@ -550,10 +610,11 @@ def LoadDataFromFiles(FileDir,FolderCalibWavelength,WaveCenter):
 
         FileCycle = pd.read_csv(Folder[j]+'/Cycle.csv')
         CycleStore = pd.concat([CycleStore, FileCycle], axis=1)
-    
+
     DataTot = pd.concat(DataTot).set_index(['Mes', 'Time'])
     print("Dataset loaded")
     return DataTot, CycleStore, len(Folder)
+
 
 if __name__ == '__main__':
 
@@ -571,69 +632,68 @@ if __name__ == '__main__':
     Nb_Points = 60  # Number of position for the piezo
     Nb_Cycle = 10  # Number of cycle during experiment
 
-    
+    BeamRadius = 15  # Minimum distance betweensuccesive point in um
 
-    BeamRadius=15 # Minimum distance betweensuccesive point in um
+    StabilityTime_Begin = 30  # Time for which it will probe at the beginning of the cycle
+    # The beam will then be block for this amount of time so that the sample 'reset'
+    StabilityTime_Reset = 30
+    StabilityTime_End = 30  # Time for which it will probe at the end of the cycle
+    # The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
+    PowerProbePulsePicker = 500
+    EmGainProbe = 0
 
-    StabilityTime_Begin=30# Time for which it will probe at the beginning of the cycle
-    StabilityTime_Reset=30# The beam will then be block for this amount of time so that the sample 'reset'
-    StabilityTime_End = 30# Time for which it will probe at the end of the cycle
-    #The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
-    PowerProbePulsePicker=500
-    EmGainProbe=0
+    Spectrograph_slit = 50  # This is just for record not actually setting it up
+    Spectrograph_Center = 700  # This is just for record not actually setting it up
 
-    Spectrograph_slit=50 # This is just for record not actually setting it up
-    Spectrograph_Center=700# This is just for record not actually setting it up
+    FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
+    Time_Min = 20
+    Time_Max = 30
+    GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points': Nb_Points, 'Beam avoidance radius': BeamRadius,
+                   'Stability time begin ': StabilityTime_Begin, 'Stability time reset': StabilityTime_Reset, 'Stability time end ': StabilityTime_End,
+                   'Power probe ': PowerProbePulsePicker, 'Em Gain probe': EmGainProbe, 'Spectrograph slit width': Spectrograph_slit, 'Spectrograph center Wavelength': Spectrograph_Center,
+                   'Note': 'The SHG unit from Coherent was used and ND1 for probe'}
 
-    FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
-    Time_Min=20
-    Time_Max=30
-    GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points':Nb_Points,'Beam avoidance radius':BeamRadius,
-               'Stability time begin ': StabilityTime_Begin,'Stability time reset':StabilityTime_Reset,'Stability time end ': StabilityTime_End,
-               'Power probe ':PowerProbePulsePicker,'Em Gain probe':EmGainProbe,'Spectrograph slit width':Spectrograph_slit,'Spectrograph center Wavelength':Spectrograph_Center,
-               'Note': 'The SHG unit from Coherent was used and ND1 for probe'}
-
-    #FileDir = '/export/scratch2/constellation-data/EnhancePerov/output-dummy/'
+    # FileDir = '/export/scratch2/constellation-data/EnhancePerov/output-dummy/'
     FileDir = 'output-dummy/'
 
-    
-    
     start_x = 0.5
     end_x = 79.5
     start_y = 0.5
-    end_y = 79.5   
+    end_y = 79.5
 
     ####
-    #Initialisation of the Timetrace object
+    # Initialisation of the Timetrace object
     ####
-    runner = timeTraceRunner(**GeneralPara) # This object allow to run the timetrace, load the data, ...
-    runner.initialize(start_x, end_x, start_y, end_y,BeamRadius, FileDir)
+    # This object allow to run the timetrace, load the data, ...
+    runner = timeTraceRunner(**GeneralPara)
+    runner.initialize(start_x, end_x, start_y, end_y, BeamRadius, FileDir)
 
     # generate initial population
     population = generateRandomParameters(Nb_Points, Nb_Cycle)
     # run the experiment
-    runner.runTimeTrace(StabilityTime_Begin,StabilityTime_Reset,StabilityTime_End,
-                        PowerProbePulsePicker,EmGainProbe, population)
+    runner.runTimeTrace(StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
+                        PowerProbePulsePicker, EmGainProbe, population)
     # calculate fitness values
-    FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
-    evaluateFitnessValues(population,runner.DirectoryPath,FolderCalibWavelength,Spectrograph_Center,Time_Min,Time_Max,'M2')
+    FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
+    evaluateFitnessValues(population, runner.DirectoryPath,
+                          FolderCalibWavelength, Spectrograph_Center, Time_Min, Time_Max, 'M2')
 
-    
-    number_of_generations = 0 
+    number_of_generations = 0
     while number_of_generations < generations_budget:  # generational loop
         print("################")
-        print("# GENERATION",number_of_generations,"#")
+        print("# GENERATION", number_of_generations, "#")
         print("################")
 
         offspring = makeOffspring(population)
 
         # run the experiment
-        runner.runTimeTrace(StabilityTime_Begin,StabilityTime_Reset,StabilityTime_End,
-                            PowerProbePulsePicker,EmGainProbe, offspring)
+        runner.runTimeTrace(StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
+                            PowerProbePulsePicker, EmGainProbe, offspring)
         # calculate fitness values
-        FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
-        evaluateFitnessValues(offspring,runner.DirectoryPath,FolderCalibWavelength,Spectrograph_Center,Time_Min,Time_Max,'M2')
-       
+        FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
+        evaluateFitnessValues(offspring, runner.DirectoryPath,
+                              FolderCalibWavelength, Spectrograph_Center, Time_Min, Time_Max, 'M2')
+
         # update population
         population = tournamentSelection(population + offspring)
 
@@ -642,4 +702,3 @@ if __name__ == '__main__':
         print(get_best_solution(population)['t_cyc'])
 
         number_of_generations += 1
-
