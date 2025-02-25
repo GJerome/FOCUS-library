@@ -1,4 +1,4 @@
-UseRoughTransla=True
+UseBothRoughAndFineTransla=True
 
 import random
 import FileControl
@@ -31,7 +31,7 @@ else:
     import ControlEMCCD as EMCCD
     import ControlPiezoStage as Transla
     import time as time
-    if UseRoughTransla==True:
+    if UseBothRoughAndFineTransla==True:
         import ControlConex as RoughTransla
 
 
@@ -75,7 +75,7 @@ class timeTraceRunner:
     def initialize(self, start_x, end_x, start_y, end_y, BeamRadius, FileDir):
         self.initializePiezo(start_x, end_x, start_y, end_y, BeamRadius)
         self.initializeInstruments()
-        self.initializeConex()
+        self.initializeTranslation()
         self.initializeOutputDirectory(FileDir)
 
     #############################
@@ -179,18 +179,30 @@ class timeTraceRunner:
         print('Initialised Flip mount and Filter wheel')
 
     #############################
-    # Initialisation of the Conex Controller
+    # Initialisation of the Translation system
     #############################
-    def initializeConex(self):
-        if 'ControlConex' in sys.modules:
-            self.x_axis = Transla.ConexController('COM12')
-            self.y_axis = Transla.ConexController('COM13')
-            print('Initialised rough translation stage')
-        elif 'ControlPiezoStage' in sys.modules or USE_DUMMY:
+    def initializeTranslation(self):
+        if UseBothRoughAndFineTransla==False:
+            if 'ControlConex' in sys.modules:
+                self.x_axis = Transla.ConexController('COM12')
+                self.y_axis = Transla.ConexController('COM13')
+                self.InstrumentsPara['Rough Stage']=self.x_axis_Rough.parameterDict | self.y_axis_Rough.parameterDict 
+                print('Initialised rough translation stage')
+            elif 'ControlPiezoStage' in sys.modules or USE_DUMMY:
+                piezo = Transla.PiezoControl('COM15')
+                self.x_axis = Transla.PiezoAxisControl(piezo, 'y', 3)
+                self.y_axis = Transla.PiezoAxisControl(piezo, 'z', 3)
+                self.InstrumentsPara['PiezoStage']=piezo.parameterDict
+                print('Initialised piezo translation stage')
+        else:
+            self.x_axis_Rough = RoughTransla.ConexController('COM12')
+            self.y_axis_Rough = RoughTransla.ConexController('COM13')
+            self.InstrumentsPara['Rough Stage']=self.x_axis_Rough.parameterDict | self.y_axis_Rough.parameterDict 
+
             piezo = Transla.PiezoControl('COM15')
             self.x_axis = Transla.PiezoAxisControl(piezo, 'y', 3)
             self.y_axis = Transla.PiezoAxisControl(piezo, 'z', 3)
-            print('Initialised piezo translation stage')
+            self.InstrumentsPara['PiezoStage']=piezo.parameterDict
 
     #############################
     # Preparation of the directory
@@ -706,6 +718,16 @@ if __name__ == '__main__':
     runner = timeTraceRunner(**GeneralPara)
     runner.initialize(start_x, end_x, start_y, end_y, BeamRadius, FileDir)
 
+    if UseBothRoughAndFineTransla==True:
+        x_rough = np.linspace(runner.x_axis_Rough.GetPosition(), runner.x_axis_Rough.GetPosition()+1, int(np.floor(np.sqrt(generations_budget))))
+        y_rough = np.linspace(runner.x_axis_Rough.GetPosition(), runner.x_axis_Rough.GetPosition()+1, int(np.ceil(np.sqrt(generations_budget))))  
+        X, Y = np.meshgrid(x_rough, y_rough)
+        PosRough = np.stack([X.ravel(), Y.ravel()], axis=-1)
+        index=random.sample(range(0, PosRough.shape[0]), PosRough.shape[0])
+        PosRough=PosRough[index,:]
+        runner.x_axis_Rough.MoveTo(PosRough[0,0])
+        runner.y_axis_Rough.MoveTo(PosRough[0,1])
+
     # generate initial population
     population = generateRandomParameters(Nb_Points, Nb_Cycle)
     # run the experiment
@@ -716,11 +738,16 @@ if __name__ == '__main__':
     evaluateFitnessValues(population, runner.DirectoryPath,
                           FolderCalibWavelength, Spectrograph_Center, Time_Min, Time_Max, 'M2')
 
-    number_of_generations = 0
+    number_of_generations = 1
     while number_of_generations < generations_budget:  # generational loop
         print("################")
         print("# GENERATION", number_of_generations, "#")
         print("################")
+
+        if UseBothRoughAndFineTransla==True:
+            runner.x_axis_Rough.MoveTo(PosRough[number_of_generations,0])
+            runner.y_axis_Rough.MoveTo(PosRough[number_of_generations,1])
+
 
         offspring = makeOffspring(population)
 
