@@ -29,8 +29,13 @@ class PiezoControl:
         self.x=self.GetX()
         self.y=self.GetY()
         self.z=self.GetZ()
+
+        self.ResStep=0.008
         
-        self.parameterDict={'Piezo mode':'closed loop','Starting position x:':self.x,'Starting position y:': self.y,'Starting position z:':self.z}
+        self.parameterDict={'Piezo mode':'closed loop',
+                            'Starting position x:':self.x,
+                            'Starting position y:': self.y,
+                            'Starting position z:':self.z,'Step resolution': self.ResStep}
 
     # Get position on all axis
     def GetX(self):
@@ -71,7 +76,7 @@ class PiezoAxisControl:
         pos=np.round(pos,3)
         t0=time.time()
         t1=time.time()-t0
-        while ((self.GetPosition()>pos+0.008) or (self.GetPosition()<pos-0.008)) and (t1< self.Timeout):
+        while ((self.GetPosition()>pos+self.ResStep) or (self.GetPosition()<pos-self.ResStep)) and (t1< self.Timeout):
             if self.axis=='x':
                 self.piezo.SetX(pos)
             elif self.axis=='y':

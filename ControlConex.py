@@ -110,7 +110,7 @@ class ConexController:
     The function is then just to ensure that the command are send accordigly and that everything is working. """
     
 
-    def __init__(self,ComPort):
+    def __init__(self,ComPort,Name='default'):
         """ This class connect to a motor using the Comport aguments. It communicate using Comp portts and CLI command. 
         The function is then just to ensure that the command are send accordigly and that everything is working.
         """
@@ -118,6 +118,7 @@ class ConexController:
         # Connexion to the serial port
         self.SerialPort = serial.Serial(ComPort,baudrate=921600,timeout=3)
         self.Status=self.GetStatus()
+        self.Name=Name
         a=0
         while a!=1:
             if self.CheckNotReferencedStatus!= False:
@@ -131,7 +132,7 @@ class ConexController:
             #print(a)
         
         self.Pos=self.GetPosition()
-        
+        self.parameterDict={'COM port':ComPort,'axis name':Name,'Starting position':self.Pos}
 
 
     def __del__(self):
