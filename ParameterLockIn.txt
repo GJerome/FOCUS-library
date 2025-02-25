@@ -1,12 +1,19 @@
 #Don't forget to put space before  and after the equal sign
 #General parameter of the lock-in amplifier
-ServerName =dev2940
+ServerName = dev2940
 SamplingRate = 10000
-#Demodulator 1 to poll
+#Demodulator 1 : Reflexion
+Name_1 = Reflexion
 Demodulator1 = 0
-FilterOrder = 8
-TimeConstant = 0.02
-#Demodulator 2 to poll
+FilterOrder_1 = 8
+TimeConstant_1 = 0.001
+#Demodulator 2  : Integrating sphere
 Demodulator2 = 1
-FilterOrder = 8
-TimeConstant = 0.02
+Name_2 = IS
+FilterOrder_2 = 2
+TimeConstant_2 = 0.001
+#Demodulator 3: Beam monitor
+Name_3 = BeamMonitor
+Demodulator3 =2
+FilterOrder_3 = 4
+TimeConstant_3 = 0.001

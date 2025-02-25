@@ -144,4 +144,5 @@ if __name__ == "__main__":
     print(pp.parameterDict)
     #pp.SetPower(1400)
     #print(pp.SetPowerState(1))
-    print(pp.GetDivRatio())
+    print(pp.GetPower())
+    print(pp.SetPower(3100))

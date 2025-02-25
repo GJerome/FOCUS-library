@@ -97,6 +97,6 @@ if __name__ == "__main__":
     print('Main code')
     SHGDevice = SHG('COM17','d:\\Data\\24-07-25-CalibSHG6True\\ResultSHGCalibration.csv')
     print(SHGDevice.GetWavelength())
-    print(SHGDevice.SetWavelength(960))
+    print(SHGDevice.SetWavelength(900))
     #print(SHGDevice.SetActuatorPosition(47))
     print(SHGDevice.GetWavelength())

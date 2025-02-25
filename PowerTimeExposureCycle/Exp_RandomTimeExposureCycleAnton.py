@@ -19,6 +19,7 @@ if USE_DUMMY:
     import ControlDummy as Transla
     import ControlDummy as time
 else:
+    import ControlFilterWheel as FilterWheel
     import ControlFlipMount as shutter
     import ControlThorlabsShutter as ThorlabsShutter
     import ControlLaser as las
@@ -129,11 +130,11 @@ class timeTraceRunner:
         #############################
         # Initialisation of the EMCCD
         #############################
-        self.camera = EMCCD.LightFieldControl('ML')
+        self.camera = EMCCD.LightFieldControl('ML2')
         self.FrameTime = self.camera.GetFrameTime()
         self.ExposureTime = self.camera.GetExposureTime()
         self.NumberOfFrame = self.camera.GetNumberOfFrame()
-        self.camera.SetEMGain(1)
+        #self.camera.SetEMGain(1)
         self.InstrumentsPara['PI EMCCD'] = self.camera.parameterDict
         print('Initialised EMCCD')
 
@@ -142,6 +143,7 @@ class timeTraceRunner:
         #############################
         self.FM = ThorlabsShutter.ShutterControl("68800883",'Shutter')
         self.FM_ND = shutter.FlipMount("37007725",'ND1') # state 1 is the one with the ND
+        self.FilterWheel=FilterWheel.FilterWheel('COM18')
         self.InstrumentsPara['FlipMount']=self.FM.parameterDict | self.FM_ND.parameterDict
         print('Initialised Flip mount')
 
@@ -195,7 +197,7 @@ class timeTraceRunner:
         IteratorCyc = np.nditer(CycNumber, flags=['f_index'])
 
         self.Laser.SetStatusShutterTunable(1)
-        self.FM.SetClose(0)
+        self.FM.SetClose()
         for k in IteratorMes:
             # Generation of the folder and measurement prep
             print('Measurement number:{}'.format(MesNumber[IteratorMes.index]))
@@ -219,7 +221,7 @@ class timeTraceRunner:
             T_tot = np.sum(t_cyc)
 
             # Camera setting adjustement
-            NbFrameCycle = NbFrameCycle = np.ceil((T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset)/self.FrameTime)
+            NbFrameCycle = NbFrameCycle = np.ceil((T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset+3.6)/self.FrameTime)# the 3.6 is due to the filter whell moving
             self.camera.SetNumberOfFrame(NbFrameCycle)
             print('Time cycle:{}'.format(t_cyc.tolist()))
             print('Power cycle:{}'.format(p_cyc.tolist()))
@@ -228,8 +230,10 @@ class timeTraceRunner:
 
             #Create timing parameter
             t_sync=np.zeros(len(t_cyc))
-            self.camera.SetEMGain(EmGainProbe)
+            if EmGainProbe!=0:
+                self.camera.SetEMGain(EmGainProbe)
             self.FM_ND.ChangeState(1)
+            self.FilterWheel.set_position(1)
             self.FM.SetOpen()  
             self.camera.Acquire()# Launch acquisition
             
@@ -241,7 +245,8 @@ class timeTraceRunner:
             print('Stability time beginning')
             self.pp.SetPower(PowerProbePulsePicker)
             time.sleep(StabilityTime_Begin)
-            self.camera.SetEMGain(EmGainProbe)
+            if EmGainProbe!=0:
+                self.camera.SetEMGain(EmGainProbe)
 
             ###############
             # Reset  time
@@ -250,6 +255,7 @@ class timeTraceRunner:
             self.FM.SetClose()
             self.FM_ND.ChangeState(0)
             time.sleep(StabilityTime_Reset)
+            self.FilterWheel.set_position(2)
             self.FM.SetOpen()
 
             #############################
@@ -266,7 +272,7 @@ class timeTraceRunner:
                 t_sync[IteratorCyc.index]=time.time()-t0
                 time.sleep(t_cyc[IteratorCyc.index])
             IteratorCyc.reset()
-
+            self.FilterWheel.set_position(1)
             
             #############################
             # Stability time at the end 
@@ -277,7 +283,8 @@ class timeTraceRunner:
             self.FM.SetOpen()
             self.FM_ND.ChangeState(1)
             self.pp.SetPower(PowerProbePulsePicker)
-            self.camera.SetEMGain(EmGainProbe)
+            if EmGainProbe!=0:
+                self.camera.SetEMGain(EmGainProbe)
             self.camera.WaitForAcq()
 
             #############################
@@ -285,7 +292,8 @@ class timeTraceRunner:
             #############################
             self.FM_ND.ChangeState(0)
             self.FM.SetClose()
-            self.camera.SetEMGain(1)
+            if EmGainProbe!=0:
+                self.camera.SetEMGain(1)
 
             # Save all the cycle in the folder
             temp = pd.DataFrame(
@@ -315,15 +323,15 @@ def generateRandomParameters(Nb_Points, Nb_Cycle):
     ###################
     P = (0, 4.4, 10, 100, 200)  # power in uW
     #Value to reach on the powermeter (0,11,25,240,475)uW
-    P_calib = (500, 500, 900, 2400, 3400)  # Power from the pp to reach values of P #20MHz
-    p1 = [0.3, 0.133, 0.133, 0.134, 0.3]
+    P_calib = (500, 500, 800, 2100, 2800)  # Power from the pp to reach values of P #20MHz
+    p1 = [0.2, 0.2, 0.2, 0.2, 0.2]
     ProbaP = p1
 
     ###################
     # Proba density function Time
     ###################
-    t = (0.1, 1, 10, 30)  # time
-    p1 = [0.23, 0.23, 0.30, 0.24]
+    t = (0.1, 1, 10, 60)  # time
+    p1 = [0.25, 0.25, 0.25, 0.25]
     ProbaT = p1
 
     population = []
@@ -523,7 +531,7 @@ def LoadDataFromFiles(FileDir,FolderCalibWavelength,WaveCenter):
     CenterPixel = WaveCenter
     Wavelength = (PixelNumber-b)/a+CenterPixel
 
-    Folder = sorted(glob.glob('./Mes*'), key=lambda x: float(x[5:x.find('x')]))
+    Folder = sorted(glob.glob(FileDir+'/Mes*'), key=lambda x: float(x[x.find('Mes')+3:x.find('x')]))
     CycleStore = pd.DataFrame()
     DataTot = []
     for j in range(len(Folder)):
@@ -560,7 +568,7 @@ if __name__ == '__main__':
     #############################
     # TimeTrace parameters
     #############################
-    Nb_Points = 25  # Number of position for the piezo
+    Nb_Points = 60  # Number of position for the piezo
     Nb_Cycle = 10  # Number of cycle during experiment
 
     
@@ -572,7 +580,7 @@ if __name__ == '__main__':
     StabilityTime_End = 30# Time for which it will probe at the end of the cycle
     #The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
     PowerProbePulsePicker=500
-    EmGainProbe=20
+    EmGainProbe=0
 
     Spectrograph_slit=50 # This is just for record not actually setting it up
     Spectrograph_Center=700# This is just for record not actually setting it up

@@ -28,7 +28,7 @@ import ControlPiezoStage as Transla
 #############################
 
 
-Nb_Points =100  # Number of position for the piezo
+Nb_Points =150  # Number of position for the piezo
 
 start_x =0.5
 end_x = 79.5
@@ -38,9 +38,9 @@ end_y = 79.5
 
 Nb_Cycle = 10# Number of cycle during experiment
 
-StabilityTime_Begin=30# Time for which it will probe at the beginning of the cycle
+StabilityTime_Begin=45# Time for which it will probe at the beginning of the cycle
 StabilityTime_Reset=60# The beam will then be block for this amount of time so that the sample 'reset'
-StabilityTime_End = 30# Time for which it will probe at the end of the cycle
+StabilityTime_End = 45# Time for which it will probe at the end of the cycle
 #The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
 
 PowerProbePulsePicker=500
@@ -64,7 +64,7 @@ Spectrograph_slit=100 # This is just for record not actually setting it up
 Spectrograph_Center=700# This is just for record not actually setting it up
 
 FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
-BeamRadius=15
+BeamRadius=20
 
 #############################
 # Piezo parameter
