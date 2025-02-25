@@ -719,8 +719,8 @@ if __name__ == '__main__':
     runner.initialize(start_x, end_x, start_y, end_y, BeamRadius, FileDir)
 
     if UseBothRoughAndFineTransla==True:
-        x_rough = np.linspace(runner.x_axis_Rough.GetPosition(), runner.x_axis_Rough.GetPosition()+1, int(np.floor(np.sqrt(generations_budget))))
-        y_rough = np.linspace(runner.x_axis_Rough.GetPosition(), runner.x_axis_Rough.GetPosition()+1, int(np.ceil(np.sqrt(generations_budget))))  
+        x_rough = np.linspace(runner.x_axis_Rough.GetPosition()-0.5, runner.x_axis_Rough.GetPosition()+0.5, int(np.floor(np.sqrt(generations_budget))))
+        y_rough = np.linspace(runner.x_axis_Rough.GetPosition()-0.5, runner.x_axis_Rough.GetPosition()+0.5, int(np.ceil(np.sqrt(generations_budget))))  
         X, Y = np.meshgrid(x_rough, y_rough)
         PosRough = np.stack([X.ravel(), Y.ravel()], axis=-1)
         index=random.sample(range(0, PosRough.shape[0]), PosRough.shape[0])
