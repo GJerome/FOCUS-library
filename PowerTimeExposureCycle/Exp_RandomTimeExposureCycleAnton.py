@@ -205,7 +205,7 @@ class timeTraceRunner:
     # TimeTrace loop
     #############################
     def runTimeTrace(self, StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
-                     PowerProbePulsePicker, EmGainProbe, sample_parameters):
+                     PowerProbePulsePicker, EmGainProbe, sample_parameters, FilterWheelPosCycle):
         '''The parameters are the following: 
         -df_t_cyc: list of the random time selected for one cycle
         -df_p_cyc: list of the random power selected for one cycle
@@ -224,16 +224,21 @@ class timeTraceRunner:
         self.Laser.SetStatusShutterTunable(1)
         self.FM.SetClose()
         for k in IteratorMes:
+            #############
             # Generation of the folder and measurement prep
+            #############
             print('Measurement number:{}'.format(MesNumber[IteratorMes.index]))
+
             TempDirPath = self.DirectoryPath+'/Mes'+str(MesNumber[IteratorMes.index])+'x='+str(np.round(
                 self.Pos[IteratorMes.index, 0], 2))+'y='+str(np.round(self.Pos[IteratorMes.index, 1], 2))
 
             if (not os.path.isdir(TempDirPath)):
                 os.mkdir(TempDirPath)
-
             self.camera.SetSaveDirectory(TempDirPath.replace('/', "\\"))
 
+            #############
+            # Moving and preperation for next cycle
+            #############
             self.x_axis.MoveTo(self.Pos[IteratorMes.index, 0])
             self.y_axis.MoveTo(self.Pos[IteratorMes.index, 1])
 
@@ -241,15 +246,16 @@ class timeTraceRunner:
             t_cyc = sample_parameters[MesNumber[IteratorMes.index]]['t_cyc']
             p_cyc = sample_parameters[MesNumber[IteratorMes.index]]['p_cyc']
             p_cyc_calib = sample_parameters[k]['p_cyc_calib']
+
             assert (len(t_cyc) == len(p_cyc) == len(p_cyc_calib) == Nb_Cycle)
 
             T_tot = np.sum(t_cyc)
 
             # Camera setting adjustement
-            # the 3.6 is due to the filter whell moving
             NbFrameCycle = NbFrameCycle = np.ceil(
-                (T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset+3.6)/self.FrameTime)
+                (T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset+3.6)/self.FrameTime)  # the 3.6s is due to the filter whell moving
             self.camera.SetNumberOfFrame(NbFrameCycle)
+
             print('Time cycle:{}'.format(t_cyc.tolist()))
             print('Power cycle:{}'.format(p_cyc.tolist()))
             print('Real Power cycle:{}'.format(p_cyc_calib.tolist()))
@@ -258,13 +264,21 @@ class timeTraceRunner:
 
             # Create timing parameter
             t_sync = np.zeros(len(t_cyc))
+
             if EmGainProbe != 0:
+                # if not in low noise mode apply an EM gain
                 self.camera.SetEMGain(EmGainProbe)
+
+            # ND and FilterWheel placement
             self.FM_ND.ChangeState(1)
+            # Here we assume that the filter wheel set to position 1 is the no ND place
             self.FilterWheel.set_position(1)
             self.FM.SetOpen()
-            self.camera.Acquire()  # Launch acquisition
 
+            #############
+            # Begin cycle
+            #############
+            self.camera.Acquire()  # Launch acquisition
             t0 = time.time()
 
             ###############
@@ -283,11 +297,11 @@ class timeTraceRunner:
             self.FM.SetClose()
             self.FM_ND.ChangeState(0)
             time.sleep(StabilityTime_Reset)
-            self.FilterWheel.set_position(2)
+            self.FilterWheel.set_position(FilterWheelPosCycle)
             self.FM.SetOpen()
 
             #############################
-            # Power/Time  iteration
+            # Power/Time  step iteration
             #############################
 
             for j in IteratorCyc:
@@ -301,13 +315,13 @@ class timeTraceRunner:
                 t_sync[IteratorCyc.index] = time.time()-t0
                 time.sleep(t_cyc[IteratorCyc.index])
             IteratorCyc.reset()
-            self.FilterWheel.set_position(1)
 
             #############################
             # Stability time at the end
             #############################
 
             print('Stability Time end')
+            self.FilterWheel.set_position(1)
             self.FM.SetOpen()
             self.FM_ND.ChangeState(1)
             self.pp.SetPower(PowerProbePulsePicker)
@@ -325,7 +339,8 @@ class timeTraceRunner:
 
             # Save all the cycle in the folder
             temp = pd.DataFrame(
-                {'Exposure Time': t_cyc.tolist(), 'Power send': p_cyc.tolist(), 'Power Pulse-picker': p_cyc_calib.tolist(), 'Sync': t_sync})
+                {'Exposure Time': t_cyc.tolist(), 'Power send': p_cyc.tolist(),
+                 'Power Pulse-picker': p_cyc_calib.tolist(), 'Sync': t_sync})
             temp.to_csv(TempDirPath+'/Cycle.csv')
 
         self.Laser.SetStatusShutterTunable(0)
