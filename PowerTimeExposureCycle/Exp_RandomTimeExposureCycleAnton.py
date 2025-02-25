@@ -1,3 +1,5 @@
+UseRoughTransla=True
+
 import random
 import FileControl
 import spe_loader as sl
@@ -6,6 +8,7 @@ import pandas as pd
 import numpy as np
 import sys
 import os
+from scipy.integrate import simpson
 USE_DUMMY = False
 os.system('cls')
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -28,6 +31,8 @@ else:
     import ControlEMCCD as EMCCD
     import ControlPiezoStage as Transla
     import time as time
+    if UseRoughTransla==True:
+        import ControlConex as RoughTransla
 
 
 #############################
@@ -424,85 +429,103 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
     M_all = pd.DataFrame(index=range(Nb_pts), columns=[
                          'Enhancement', 'error', 'S1', 'S2'])
 
+    ###################
     # Compute fitnesses
+    ###################
     fitness_values = np.zeros(Nb_pts)
     for i in range(Nb_pts):
         # We first  compute the time at which the stability time begin and end for each cycles
-        # The way the timing work is the following. The first timestamp  correspond to the time between the first spectra and the second step in a sequence.
-        # So if the StabilityTime_begin=10,StabilityTime_reset=10 and the first step is 1s then the first timestamp will occur at t[0]=21s
-        # All other Timestamp occurs at each step of the cycles
-        ts_end = np.argmin(
-            np.abs(DataTot.index-t_globalSync-StabilityTime_end))
+        # The first timestamp  correspond to the time between the first spectra and the first spectra of the second step.
+        # So if the StabilityTime_begin=10, StabilityTime_reset=10 and the first step is 1s then the first of t_globalSync
+        # will occur at t[0]=21s. All other Timestamp occurs at each step of the cycles.
+        # The last timestamp correspond to the end of the cycles but there is 1.6s made for the filterwheel to move to its position.
+
+        ts_end = np.argmin(np.abs(DataTot.index-(t_globalSync+1.6)))
         ts_begin = np.argmin(np.abs(DataTot.index-StabilityTime_begin))
 
-        # We then cut the data accordingly and put them on the samereference frame i.e time between zero and he end of their associated stability time
-        dataFit_End = DataTot.loc[i, :, :].loc[DataTot.loc[i,
-                                                           :, :].index > DataTot.loc[i, :, :].index[ts_end], :]
-        dataFit_End = pd.DataFrame(dataFit_End.to_numpy(), index=(
-            dataFit_End.index[-1]-dataFit_End.index)[::-1], columns=dataFit_End.columns)
-        dataFit_Begin = DataTot.loc[i, :, :].loc[DataTot.loc[i,
-                                                             :, :].index < DataTot.loc[i, :, :].index[ts_begin], :]
+        # We then cut the data accordingly and put them on the same reference frame
+        # i.e time between zero and he end of their associated stability time.
+        dataTemp = DataTot.loc[i, :, :]
+
+        dataFit_End = dataTemp.loc[dataTemp.index > dataTemp.index[ts_end], :]
+        dataFit_End = pd.DataFrame(dataFit_End.to_numpy(), index=(dataFit_End.index[-1]-dataFit_End.index)[::-1],
+                                   columns=dataFit_End.columns)
+
+        dataFit_Begin = dataTemp.loc[dataTemp.index <dataTemp.index[ts_begin], :]
 
         ##########################
         # Use rolling mean to remove noise
         ##########################
         print('{}/{} Rolling mean computation'.format(i+1, Nb_pts))
-        FitDataResult_End = pd.DataFrame(
-            index=dataFit_End.index, columns=dataFit_End.columns)
+
+        FitDataResult_End = pd.DataFrame(index=dataFit_End.index, columns=dataFit_End.columns)
+
         for j in dataFit_End.index:
-            FitDataResult_End.loc[j, :] = dataFit_End.loc[j, :].rolling(
-                10, min_periods=1).mean()
+            FitDataResult_End.loc[j, :] = dataFit_End.loc[j, :].rolling(5, min_periods=1).mean()
         FitDataResult_End['Mes'] = i
+
         FitAll_End = pd.concat([FitAll_End, FitDataResult_End], axis=0)
 
-        FitDataResult_Begin = pd.DataFrame(
-            index=dataFit_Begin.index, columns=dataFit_Begin.columns)
+        FitDataResult_Begin = pd.DataFrame(index=dataFit_Begin.index, columns=dataFit_Begin.columns)
+
         for j in dataFit_Begin.index:
             FitDataResult_Begin.loc[j, :] = dataFit_Begin.loc[j, :].rolling(
-                10, min_periods=1).mean()
+                5, min_periods=1).mean()
         FitDataResult_Begin['Mes'] = i
+
         FitAll_Begin = pd.concat([FitAll_Begin, FitDataResult_Begin], axis=0)
 
         ##########################
         # Interpolate to the same timescale
         ##########################
 
-        print('{}/{} Interpolation to the same timebase'.format(i+1, Nb_pts))
+        print('{}/{} Interpolation to the same timebase'.format(i +1, Nb_pts), end='', flush=True)
+
         if (dataFit_End.index[-1]-dataFit_End.index[0]) > (dataFit_Begin.index[-1]-dataFit_Begin.index[0]):
-            time_int = np.abs(dataFit_Begin.index -
-                              dataFit_Begin.index[-1])[::-1]
+
+            time_int = np.abs(dataFit_Begin.index -dataFit_Begin.index[-1])[::-1]
+
+            # S2
             dataTemp_Interp = pd.DataFrame(
                 FitDataResult_End.iloc[:, :-2], dtype='float64')
-            dataFit_interp2 = pd.DataFrame(np.interp(time_int,
-                                                     dataTemp_Interp.loc[(
-                                                         dataTemp_Interp.index) <= time_int[-1], :].index,
-                                                     dataTemp_Interp.loc[dataTemp_Interp.index <= time_int[-1], :].max(axis=1)), index=time_int)
-            dataFit_interp1 = pd.DataFrame(
-                FitDataResult_Begin.max(axis=1).to_numpy(), index=time_int)
+            dataTemp_Interp = dataTemp_Interp.loc[dataTemp_Interp.index <=time_int[-1], :]
+            dataFit_interp2 = pd.DataFrame(np.interp(time_int, dataTemp_Interp.index,
+                                                     simpson(y=dataTemp_Interp.to_numpy(), x=dataTemp_Interp.columns.to_numpy(), axis=1)),
+                                           index=time_int)
+            # S1
+            dataTemp = simpson(y=FitDataResult_Begin.iloc[:, :-1].to_numpy(),
+                               x=FitDataResult_Begin.iloc[:,:-1].columns.to_numpy(),
+                               axis=1)
+            dataFit_interp1 = pd.DataFrame(dataTemp, index=time_int)
         else:
+
             time_int = np.abs(dataFit_End.index-dataFit_End.index[-1])[::-1]
+
+            # S1
             dataTemp_Interp = pd.DataFrame(
                 FitDataResult_Begin.iloc[:, :-2], dtype='float64')
-            dataFit_interp1 = np.interp(time_int,
-                                        dataTemp_Interp.loc[dataTemp_Interp.index <=
-                                                            time_int[-1], :].index,
-                                        dataTemp_Interp.loc[dataTemp_Interp.index <= time_int[-1], :].max(axis=1))
-            dataFit_interp2 = pd.DataFrame(
-                FitDataResult_Begin.max(axis=1).to_numpy(), index=time_int)
+            dataTemp_Interp = dataTemp_Interp.loc[dataTemp_Interp.index <=time_int[-1], :]
+            dataFit_interp1 = pd.DataFrame(np.interp(time_int, dataTemp_Interp.index,
+                                                     simpson(y=dataTemp_Interp.to_numpy(), x=dataTemp_Interp.columns.to_numpy(), axis=1)),
+                                           index=time_int)
+            # S2
+            dataTemp = simpson(y=FitDataResult_End.iloc[:, :-1].to_numpy(),
+                               x=FitDataResult_End.iloc[:,:-1].columns.to_numpy(),
+                               axis=1)
 
-        M_all.loc[i, 'EnhancementTime'] = [
-            dataFit_interp2.div(dataFit_interp1, axis=0)]
+            dataFit_interp2 = pd.DataFrame(dataTemp, index=time_int)
+
+        M_all.loc[i, 'EnhancementTime'] = [dataFit_interp2.div(dataFit_interp1, axis=0)]
         M_all.loc[i, 'S1'] = [dataFit_interp1]
         M_all.loc[i, 'S2'] = [dataFit_interp2]
-        M_all.loc[i, 'error'] = dataFit_interp2.div(
-            dataFit_interp1).std(axis=0).to_numpy()
+        M_all.loc[i, 'error'] = dataFit_interp2.div(dataFit_interp1).std(axis=0).to_numpy()
 
         if Observable == 'M2':
-            fitness_values[i] = (M_all.loc[j, 'S2'][0].loc[(M_all.loc[j, 'S2'][0].index > Time_Min) & (M_all.loc[j, 'S2'][0].index < Time_Max), 0]
-                                 / M_all.loc[j, 'S1'][0].loc[(M_all.loc[j, 'S1'][0].index > Time_Min) & (M_all.loc[j, 'S1'][0].index < Time_Max), 0]).mean()
+            fitness_values[i] = (M_all.loc[i, 'S2'][0].loc[(M_all.loc[i, 'S2'][0].index > Time_Min) & (M_all.loc[i, 'S2'][0].index < Time_Max), 0]
+                                 / M_all.loc[i, 'S1'][0].loc[(M_all.loc[i, 'S1'][0].index > Time_Min) & (M_all.loc[i, 'S1'][0].index < Time_Max), 0]).mean()
         elif Observable == 'M1':
-            fitness_values[i] = (M_all.loc[j, 'S2'][0].loc[(M_all.loc[j, 'S2'][0].index > Time_Min) & (M_all.loc[j, 'S2'][0].index < Time_Max), 0]
-                                 - M_all.loc[j, 'S1'][0].loc[(M_all.loc[j, 'S1'][0].index > Time_Min) & (M_all.loc[j, 'S1'][0].index < Time_Max), 0]).mean()
+            fitness_values[i] = (M_all.loc[i, 'S2'][0].loc[(M_all.loc[i, 'S2'][0].index > Time_Min) & (M_all.loc[i, 'S2'][0].index < Time_Max), 0]
+                                 - M_all.loc[i, 'S1'][0].loc[(M_all.loc[i, 'S1'][0].index > Time_Min) & (M_all.loc[i, 'S1'][0].index < Time_Max), 0]).mean()
         population[i].fitness = fitness_values[i]
 
     print("# FITNESS VALUES #")
