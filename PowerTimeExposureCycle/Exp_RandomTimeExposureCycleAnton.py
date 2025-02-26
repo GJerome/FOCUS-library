@@ -1,7 +1,6 @@
 UseBothRoughAndFineTransla=True
 
 import random
-import FileControl
 import spe_loader as sl
 import glob
 import pandas as pd
@@ -33,6 +32,8 @@ else:
     import time as time
     if UseBothRoughAndFineTransla==True:
         import ControlConex as RoughTransla
+
+import FileControl
 
 
 #############################
@@ -222,7 +223,7 @@ class timeTraceRunner:
     # TimeTrace loop
     #############################
     def runTimeTrace(self, StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
-                     PowerProbePulsePicker, EmGainProbe, sample_parameters, FilterWheelPosCycle):
+                     PowerProbePulsePicker, EmGainProbe, sample_parameters, FilterWheelPosCycle=2):
         '''The parameters are the following: 
         -df_t_cyc: list of the random time selected for one cycle
         -df_p_cyc: list of the random power selected for one cycle
@@ -679,7 +680,7 @@ if __name__ == '__main__':
     #############################
     # TimeTrace parameters
     #############################
-    Nb_Points = 60  # Number of position for the piezo
+    Nb_Points = 100  # Number of position for the piezo
     Nb_Cycle = 10  # Number of cycle during experiment
 
     BeamRadius = 15  # Minimum distance betweensuccesive point in um
@@ -706,10 +707,15 @@ if __name__ == '__main__':
     # FileDir = '/export/scratch2/constellation-data/EnhancePerov/output-dummy/'
     FileDir = 'output-dummy/'
 
+    # Piezo parameter
     start_x = 0.5
     end_x = 79.5
     start_y = 0.5
     end_y = 79.5
+
+    # Rough stage parameter
+    start_x_rough=5.7
+    start_y_rough=10
 
     ####
     # Initialisation of the Timetrace object
@@ -717,10 +723,12 @@ if __name__ == '__main__':
     # This object allow to run the timetrace, load the data, ...
     runner = timeTraceRunner(**GeneralPara)
     runner.initialize(start_x, end_x, start_y, end_y, BeamRadius, FileDir)
+    runner.x_axis_Rough.MoveTo(start_x_rough)
+    runner.y_axis_Rough.MoveTo(start_y_rough)
 
     if UseBothRoughAndFineTransla==True:
         x_rough = np.linspace(runner.x_axis_Rough.GetPosition()-0.5, runner.x_axis_Rough.GetPosition()+0.5, int(np.floor(np.sqrt(generations_budget))))
-        y_rough = np.linspace(runner.x_axis_Rough.GetPosition()-0.5, runner.x_axis_Rough.GetPosition()+0.5, int(np.ceil(np.sqrt(generations_budget))))  
+        y_rough = np.linspace(runner.y_axis_Rough.GetPosition()-0.5, runner.y_axis_Rough.GetPosition()+0.5, int(np.ceil(np.sqrt(generations_budget))))  
         X, Y = np.meshgrid(x_rough, y_rough)
         PosRough = np.stack([X.ravel(), Y.ravel()], axis=-1)
         index=random.sample(range(0, PosRough.shape[0]), PosRough.shape[0])
