@@ -76,7 +76,7 @@ class PiezoAxisControl:
         pos=np.round(pos,3)
         t0=time.time()
         t1=time.time()-t0
-        while ((self.GetPosition()>pos+self.ResStep) or (self.GetPosition()<pos-self.ResStep)) and (t1< self.Timeout):
+        while ((self.GetPosition()>pos+self.piezo.ResStep) or (self.GetPosition()<pos-self.piezo.ResStep)) and (t1< self.Timeout):
             if self.axis=='x':
                 self.piezo.SetX(pos)
             elif self.axis=='y':
