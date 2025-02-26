@@ -627,14 +627,13 @@ def LoadDataFromFiles(FileDir, FolderCalibWavelength, WaveCenter):
     except:
         print('Problem reading wavelength calibraton at : {}\n Taking default value'.format(
             FolderCalibWavelength))
-        a = 2.354381287460651
-        b = 490.05901104995587
+        a = 2.339373103584057
+        b = 470.06854115746376
     PixelNumber = np.linspace(1, 1024, 1024)
     CenterPixel = WaveCenter
     Wavelength = (PixelNumber-b)/a+CenterPixel
 
-    Folder = sorted(glob.glob(FileDir+'/Mes*'),
-                    key=lambda x: float(x[x.find('Mes')+3:x.find('x')]))
+    Folder = sorted(glob.glob(FileDir+'/Mes*'),key=lambda x: float(x[x.find('Mes')+3:x.find('x')]))
     CycleStore = pd.DataFrame()
     DataTot = []
     for j in range(len(Folder)):
