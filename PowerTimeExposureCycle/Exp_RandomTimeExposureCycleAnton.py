@@ -439,8 +439,7 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
     Pos, p_cyc, TimeCycle, TimeSync, t_globalSync, StabilityTime_begin, StabilityTime_reset, StabilityTime_end = loadExperimentInfo(
         CycleStore, Nb_pts, FileDir)
 
-    M_all = pd.DataFrame(index=range(Nb_pts), columns=[
-                         'Enhancement', 'error', 'S1', 'S2'])
+    M_all = pd.DataFrame(index=range(Nb_pts), columns=['Enhancement', 'error', 'S1', 'S2'])
 
     ###################
     # Compute fitnesses
@@ -609,16 +608,9 @@ def loadExperimentInfo(CycleStore, Nb_pts, FileDir):
     t_globalSync = pd.Series(TimeSync.iloc[-1, :], index=range(Nb_pts))
 
     for i in range(Nb_pts):
-        if i == 0:
-            p_cyc.iloc[:, i] = CycleStore.loc[:, 'Power send']
-            TimeCycle.iloc[:, i] = CycleStore.loc[:, 'Exposure Time']
-            TimeSync.iloc[:, i] = CycleStore.loc[:, 'Sync']
-
-        else:
-            p_cyc.iloc[:, i] = CycleStore.loc[:, 'Power send.{}'.format(i)]
-            TimeCycle.iloc[:, i] = CycleStore.loc[:,
-                                                  'Exposure Time.{}'.format(i)]
-            TimeSync.iloc[:, i] = CycleStore.loc[:, 'Sync.{}'.format(i)]
+        p_cyc.iloc[:,i]=CycleStore.loc[CycleStore['Mes']==i,'Power send']
+        TimeCycle.iloc[:,i]=CycleStore.loc[CycleStore['Mes']==i,'Exposure Time']
+        TimeSync.iloc[:,i]=CycleStore.loc[CycleStore['Mes']==i,'Sync']
         t_globalSync[i] = t_globalSync[i]+TimeCycle.iloc[-1, i]
 
     Pos = pd.read_csv(FileDir+'/Position.csv').iloc[:, 1:].to_numpy()
@@ -660,9 +652,11 @@ def LoadDataFromFiles(FileDir, FolderCalibWavelength, WaveCenter):
         DataTot.append(DataTotTemp)
 
         FileCycle = pd.read_csv(Folder[j]+'/Cycle.csv')
-        CycleStore = pd.concat([CycleStore, FileCycle], axis=1)
+        FileCycle['Mes']=j
+        CycleStore = pd.concat([CycleStore, FileCycle], axis=0)
 
     DataTot = pd.concat(DataTot).set_index(['Mes', 'Time'])
+    CycleStore=CycleStore.drop(labels='Unnamed: 0', axis=1)
     print("Dataset loaded")
     return DataTot, CycleStore, len(Folder)
 
