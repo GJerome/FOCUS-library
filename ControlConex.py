@@ -121,15 +121,16 @@ class ConexController:
         self.Name=Name
         a=0
         while a!=1:
-            if self.CheckNotReferencedStatus!= False:
+            if self.CheckNotReferencedStatus()!= False:
+                print('ControlConex warning: axis not referenced, searching for home')
                 # Reset command
                 self.SerialPort.write("1RS\r\n".encode())
-                WaitStatus(self.SerialPort, '1TS00000A', 10000)
+                a=WaitStatus(self.SerialPort, '1TS00000A', 10000)
            
-            # Execute home search
-            self.SerialPort.write("1OR\r\n".encode()) 
-            a=WaitStatus(self.SerialPort, '1TS000032', 10000)
-            #print(a)
+                # Execute home search
+                self.SerialPort.write("1OR\r\n".encode()) 
+                a=WaitStatus(self.SerialPort, '1TS000032', 10000)
+                #print(a)
         
         self.Pos=self.GetPosition()
         self.parameterDict={'COM port':ComPort,'axis name':Name,'Starting position':self.Pos}
@@ -209,3 +210,7 @@ class ConexController:
     def CorrectNotReferencedState(self):
         self.SerialPort.write("1OR\r\n".encode()) 
         a=WaitStatus(self.SerialPort, '1TS000032', 10000)
+
+if __name__ == "__main__":
+    x_axis_Rough = ConexController('COM12')
+    x_axis_Rough.MoveTo(6)
