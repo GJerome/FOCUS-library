@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import sys
 import os
+import shutil
 from scipy.integrate import simpson
 USE_DUMMY = False
 os.system('cls')
@@ -417,7 +418,7 @@ def generateRandomParameters(Nb_Points, Nb_Cycle):
     return population
 
 
-def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrograph_Center, Time_Min, Time_Max, Observable):
+def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrograph_Center, Time_Min, Time_Max, Observable,GenerationNumber):
     if USE_DUMMY:
         for solution in population:
             solution.fitness = np.sum(solution['t_cyc'])
@@ -431,8 +432,7 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
         return
 
     # Load experimental data
-    DataTot, CycleStore, Nb_pts = LoadDataFromFiles(
-        FileDir, FolderCalibWavelength, Spectrograph_Center)
+    DataTot, CycleStore, Nb_pts = LoadDataFromFiles(FileDir, FolderCalibWavelength, Spectrograph_Center,GenerationNumber)
     assert len(population) == Nb_pts
 
     # Load experimental settings
@@ -452,18 +452,20 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
         # will occur at t[0]=21s. All other Timestamp occurs at each step of the cycles.
         # The last timestamp correspond to the end of the cycles but there is 1.6s made for the filterwheel to move to its position.
 
-        ts_end = np.argmin(np.abs(DataTot.index-(t_globalSync+1.6)))
-        ts_begin = np.argmin(np.abs(DataTot.index-StabilityTime_begin))
+        dataTemp = DataTot.loc[(DataTot['Mes']==i),:]
 
-        # We then cut the data accordingly and put them on the same reference frame
-        # i.e time between zero and he end of their associated stability time.
-        dataTemp = DataTot.loc[i, :, :]
+        ts_end =np.argmin(np.abs(dataTemp['Time']-t_globalSync[i]-3.2))
+        ts_begin =np.argmin(np.abs(dataTemp['Time']-StabilityTime_begin))
 
-        dataFit_End = dataTemp.loc[dataTemp.index > dataTemp.index[ts_end], :]
-        dataFit_End = pd.DataFrame(dataFit_End.to_numpy(), index=(dataFit_End.index[-1]-dataFit_End.index)[::-1],
-                                   columns=dataFit_End.columns)
+        dataFit_End = dataTemp.loc[dataTemp['Time']>dataTemp.loc[ts_end,'Time'],:].iloc[:,:-1]
+        dataFit_End = dataFit_End.set_index(dataFit_End['Time']-dataFit_End['Time'].min()).iloc[:,:-1]
 
-        dataFit_Begin = dataTemp.loc[dataTemp.index <dataTemp.index[ts_begin], :]
+        dataFit_Begin = dataTemp.loc[dataTemp['Time']<dataTemp.loc[ts_begin,'Time'],:].iloc[:,:-1]
+        dataFit_Begin = dataFit_Begin.set_index(dataFit_Begin['Time']-dataFit_Begin['Time'].min()).iloc[:,:-1]
+
+        if i==0:
+            FitAll_End = pd.DataFrame(columns=dataFit_End.columns)
+            FitAll_Begin = pd.DataFrame(columns=dataFit_Begin.columns)
 
         ##########################
         # Use rolling mean to remove noise
@@ -481,8 +483,7 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
         FitDataResult_Begin = pd.DataFrame(index=dataFit_Begin.index, columns=dataFit_Begin.columns)
 
         for j in dataFit_Begin.index:
-            FitDataResult_Begin.loc[j, :] = dataFit_Begin.loc[j, :].rolling(
-                5, min_periods=1).mean()
+            FitDataResult_Begin.loc[j, :] = dataFit_Begin.loc[j, :].rolling(5, min_periods=1).mean()
         FitDataResult_Begin['Mes'] = i
 
         FitAll_Begin = pd.concat([FitAll_Begin, FitDataResult_Begin], axis=0)
@@ -498,9 +499,9 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
             time_int = np.abs(dataFit_Begin.index -dataFit_Begin.index[-1])[::-1]
 
             # S2
-            dataTemp_Interp = pd.DataFrame(
-                FitDataResult_End.iloc[:, :-2], dtype='float64')
+            dataTemp_Interp = pd.DataFrame(FitDataResult_End.iloc[:, :-2], dtype='float64')
             dataTemp_Interp = dataTemp_Interp.loc[dataTemp_Interp.index <=time_int[-1], :]
+
             dataFit_interp2 = pd.DataFrame(np.interp(time_int, dataTemp_Interp.index,
                                                      simpson(y=dataTemp_Interp.to_numpy(), x=dataTemp_Interp.columns.to_numpy(), axis=1)),
                                            index=time_int)
@@ -514,9 +515,9 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
             time_int = np.abs(dataFit_End.index-dataFit_End.index[-1])[::-1]
 
             # S1
-            dataTemp_Interp = pd.DataFrame(
-                FitDataResult_Begin.iloc[:, :-2], dtype='float64')
+            dataTemp_Interp = pd.DataFrame(FitDataResult_Begin.iloc[:, :-2], dtype='float64')
             dataTemp_Interp = dataTemp_Interp.loc[dataTemp_Interp.index <=time_int[-1], :]
+            
             dataFit_interp1 = pd.DataFrame(np.interp(time_int, dataTemp_Interp.index,
                                                      simpson(y=dataTemp_Interp.to_numpy(), x=dataTemp_Interp.columns.to_numpy(), axis=1)),
                                            index=time_int)
@@ -618,45 +619,60 @@ def loadExperimentInfo(CycleStore, Nb_pts, FileDir):
     return Pos, p_cyc, TimeCycle, TimeSync, t_globalSync, StabilityTime_begin, StabilityTime_reset, StabilityTime_end
 
 
-def LoadDataFromFiles(FileDir, FolderCalibWavelength, WaveCenter):
+def LoadDataFromFiles(FileDir, FolderCalibWavelength, WaveCenter,GenerationNumber):
+    # Compute wavelength
     try:
         temp = pd.read_csv(FolderCalibWavelength, sep='\t', decimal=',')
-        print('Reading wavelength calibraton at : {}'.format(FolderCalibWavelength))
         a = temp.loc[:, 'a'].to_numpy()
         b = temp.loc[:, 'b'].to_numpy()
-    except:
-        print('Problem reading wavelength calibraton at : {}\n Taking default value'.format(
+        print('Reading wavelength calibration at : {}'.format(
             FolderCalibWavelength))
-        a = 2.339373103584057
-        b = 470.06854115746376
+    except:
+        print('Problem reading wavelength calibraton at : {}\n Taking default value.'.format(
+            FolderCalibWavelength))
+        a = 2.354381287460651
+        b = 490.05901104995587
     PixelNumber = np.linspace(1, 1024, 1024)
     CenterPixel = WaveCenter
     Wavelength = (PixelNumber-b)/a+CenterPixel
 
     Folder = sorted(glob.glob(FileDir+'/Mes*'),key=lambda x: float(x[x.find('Mes')+3:x.find('x')]))
     CycleStore = pd.DataFrame()
-    DataTot = []
+    DataTot = pd.DataFrame(columns=list(Wavelength)+['Time','Mes'])
+
     for j in range(len(Folder)):
         print('\r Reading Files:{} %'.format(
             np.round(100*j/len(Folder), 1)), end='', flush=True)
-        File = glob.glob(Folder[j]+'/*[0-9].spe')
+        File = glob.glob(Folder[j]+'/*.spe')
         DataRaw = sl.load_from_files(File)
         MetaData = pd.DataFrame(DataRaw.metadata)
         TimeI = MetaData.loc[:, 0].to_numpy()/(1E6)  # Time in ms
-
-        DataTotTemp = pd.DataFrame(np.squeeze(
-            DataRaw.data[:][:]), columns=Wavelength)
+        DataTotTemp=pd.DataFrame(columns=list(Wavelength)+['Time','Mes'])
+        try:
+            DataTotTemp[Wavelength]=np.squeeze(DataRaw.data)
+        except Exception as e:
+            print('\n{}'.format(e))
+            exit
         DataTotTemp['Mes'] = j
         DataTotTemp['Time'] = TimeI
-        DataTot.append(DataTotTemp)
+        if DataTot.shape[0]==0:
+            DataTot=DataTotTemp
+        else:
+            DataTot=pd.concat([DataTotTemp,DataTot],axis=0)
 
-        FileCycle = pd.read_csv(Folder[j]+'/Cycle.csv')
+        FileCycle = pd.read_csv(Folder[j]+'\Cycle.csv')
         FileCycle['Mes']=j
         CycleStore = pd.concat([CycleStore, FileCycle], axis=0)
 
-    DataTot = pd.concat(DataTot).set_index(['Mes', 'Time'])
     CycleStore=CycleStore.drop(labels='Unnamed: 0', axis=1)
-    print("Dataset loaded")
+
+    # We loaded all the data so we are going to move them for safe storage
+    os.makedirs(FileDir+'/Generation{}'.format(GenerationNumber), exist_ok=True)
+    for f in Folder:
+        FolderName=os.path.basename(f)
+        NewPath = os.path.join(FileDir+'/Generation{}'.format(GenerationNumber), FolderName)
+        shutil.move(f, NewPath)
+
     return DataTot, CycleStore, len(Folder)
 
 
@@ -711,8 +727,8 @@ if __name__ == '__main__':
     end_y = 79.5
 
     # Rough stage parameter
-    start_x_rough=5.7
-    start_y_rough=10
+    start_x_rough=5.8
+    start_y_rough=5.5
 
     ####
     # Initialisation of the Timetrace object
@@ -737,12 +753,10 @@ if __name__ == '__main__':
     # generate initial population
     population = generateRandomParameters(Nb_Points, Nb_Cycle)
     # run the experiment
-    runner.runTimeTrace(StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
-                        PowerProbePulsePicker, EmGainProbe, population,FilterWheelPosCycle,TimeTransFilterWheel)
     # calculate fitness values
     FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
     evaluateFitnessValues(population, runner.DirectoryPath,
-                          FolderCalibWavelength, Spectrograph_Center, Time_Min, Time_Max, 'M2')
+                          FolderCalibWavelength, Spectrograph_Center, Time_Min, Time_Max, 'M2',0)
 
     number_of_generations = 1
     while number_of_generations < generations_budget:  # generational loop
@@ -763,7 +777,7 @@ if __name__ == '__main__':
         # calculate fitness values
         FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
         evaluateFitnessValues(offspring, runner.DirectoryPath,
-                              FolderCalibWavelength, Spectrograph_Center, Time_Min, Time_Max, 'M2')
+                              FolderCalibWavelength, Spectrograph_Center, Time_Min, Time_Max, 'M2',number_of_generations)
 
         # update population
         population = tournamentSelection(population + offspring)
