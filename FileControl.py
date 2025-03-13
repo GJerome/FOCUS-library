@@ -30,7 +30,10 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
         print()
 
 def AskDirectory():
+    root=tk.Tk()
+    root.withdraw()
     path = askdirectory(title='Select Folder')
+    root.destroy()
     return path
 
 
