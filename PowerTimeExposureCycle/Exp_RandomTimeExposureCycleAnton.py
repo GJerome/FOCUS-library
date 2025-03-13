@@ -22,6 +22,9 @@ if USE_DUMMY:
     import ControlDummy as EMCCD
     import ControlDummy as Transla
     import ControlDummy as time
+    import ControlDummy as FilterWheel
+    if UseBothRoughAndFineTransla==True:
+        import ControlDummy as RoughTransla
 else:
     import ControlFilterWheel as FilterWheel
     import ControlFlipMount as shutter
@@ -271,7 +274,7 @@ class timeTraceRunner:
             T_tot = np.sum(t_cyc)
 
             # Camera setting adjustement
-            NbFrameCycle = NbFrameCycle = np.ceil(
+            NbFrameCycle =np.ceil(
                 (T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset+3.6)/self.FrameTime)  # the 3.6s is due to the filter whell moving
             self.camera.SetNumberOfFrame(NbFrameCycle)
 
@@ -290,8 +293,7 @@ class timeTraceRunner:
 
             # ND and FilterWheel placement
             self.FM_ND.ChangeState(1)
-            # Here we assume that the filter wheel set to position 1 is the no ND place
-            self.FilterWheel.set_position(1)
+            self.FilterWheel.set_position(1)# Here we assume that the filter wheel set to position 1 is the no ND place
             self.FM.SetOpen()
 
             #############
@@ -365,7 +367,7 @@ class timeTraceRunner:
         self.Laser.SetStatusShutterTunable(0)
 
 
-def generateRandomParameters(Nb_Points, Nb_Cycle):
+def generateRandomParameters(Nb_Points, Nb_Cycle,P_calib):
     ''''This function generate a point list. Each element of the list contains a dataframe 
     which define the cycle with the time of exposure, the power send to the sample 
     and the power from the pulse picker and a fittness attribute. The parameter are then the number of points and the number
@@ -386,7 +388,7 @@ def generateRandomParameters(Nb_Points, Nb_Cycle):
     P = (0, 4.4, 10, 100, 200)  # power in uW
     # Value to reach on the powermeter (0,11,25,240,475)uW
     # Power from the pp to reach values of P #20MHz
-    P_calib = (500, 500, 800, 2100, 2800)
+    #P_calib = (500, 500, 800, 2000, 2500)
     p1 = [0.2, 0.2, 0.2, 0.2, 0.2]
     ProbaP = p1
 
@@ -417,11 +419,32 @@ def generateRandomParameters(Nb_Points, Nb_Cycle):
 
     return population
 
+def LoadPreviousPop(FileDir,P_calib):
+    P = (0, 4.4, 10, 100, 200) 
+    GenFolder=glob.glob(FileDir+'/Generation*')
+    GenerationNumber=len(GenFolder)
+
+    CycleStore, Nb_pts=LoaCycle(GenFolder[-1])
+    Pos, p_cyc, TimeCycle, TimeSync, t_globalSync, StabilityTime_begin, StabilityTime_reset, StabilityTime_end = loadExperimentInfo(
+        CycleStore, Nb_pts, FileDir)
+    index_map = {val: idx for idx, val in enumerate(P)}
+    population = []
+
+    for k in range(Nb_pts):
+        df = pd.DataFrame()
+        df.fitness = -1
+        df['t_cyc'] = TimeCycle.iloc[:,k].to_numpy()
+        df['p_cyc'] = p_cyc.iloc[:,k].to_numpy()
+        df['p_cyc_calib'] = np.array([P_calib[index_map[i]] for i in p_cyc.iloc[:,k].to_numpy()])
+        population.append(df)
+    return population,GenerationNumber
+
+
 
 def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrograph_Center, Time_Min, Time_Max, Observable,GenerationNumber):
-    if USE_DUMMY:
-        for solution in population:
-            solution.fitness = np.sum(solution['t_cyc'])
+    #if USE_DUMMY:
+    #    for solution in population:
+    #        solution.fitness = np.sum(solution['t_cyc'])
             # f = 0
             # for i in range(len(solution['t_cyc'])):
             #    if solution['t_cyc'][i] == 0.1:
@@ -429,10 +452,11 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
             #    else:
             #        break
             # solution.fitness = f
-        return
+    #    return
 
     # Load experimental data
     DataTot, CycleStore, Nb_pts = LoadDataFromFiles(FileDir, FolderCalibWavelength, Spectrograph_Center,GenerationNumber)
+    print(FileDir)
     assert len(population) == Nb_pts
 
     # Load experimental settings
@@ -592,7 +616,9 @@ def loadExperimentInfo(CycleStore, Nb_pts, FileDir):
     #############################
     # Reading global parameters
     #############################
+
     para = ParameterRead(FileDir+'/ExperimentParameter.txt')
+    
 
     # We asssume that we probe with a single frequency
     StabilityTime_begin = float(para['Stability time begin '])
@@ -618,6 +644,23 @@ def loadExperimentInfo(CycleStore, Nb_pts, FileDir):
 
     return Pos, p_cyc, TimeCycle, TimeSync, t_globalSync, StabilityTime_begin, StabilityTime_reset, StabilityTime_end
 
+def LoaCycle(FileDir):
+
+    Folder = sorted(glob.glob(FileDir+'/Mes*'),key=lambda x: float(x[x.find('Mes')+3:x.find('x')]))
+    CycleStore = pd.DataFrame()
+
+    for j in range(len(Folder)):
+        print('\r Reading Files:{} %'.format(
+            np.round(100*j/len(Folder), 1)), end='', flush=True)    
+        FileCycle = pd.read_csv(Folder[j]+'/Cycle.csv')
+        FileCycle['Mes']=j
+        CycleStore = pd.concat([CycleStore, FileCycle], axis=0)
+
+    try:
+        CycleStore=CycleStore.drop(labels='Unnamed: 0', axis=1)
+    except:
+        pass
+    return CycleStore, len(Folder)
 
 def LoadDataFromFiles(FileDir, FolderCalibWavelength, WaveCenter,GenerationNumber):
     # Compute wavelength
@@ -635,7 +678,7 @@ def LoadDataFromFiles(FileDir, FolderCalibWavelength, WaveCenter,GenerationNumbe
     PixelNumber = np.linspace(1, 1024, 1024)
     CenterPixel = WaveCenter
     Wavelength = (PixelNumber-b)/a+CenterPixel
-
+    
     Folder = sorted(glob.glob(FileDir+'/Mes*'),key=lambda x: float(x[x.find('Mes')+3:x.find('x')]))
     CycleStore = pd.DataFrame()
     DataTot = pd.DataFrame(columns=list(Wavelength)+['Time','Mes'])
@@ -660,18 +703,23 @@ def LoadDataFromFiles(FileDir, FolderCalibWavelength, WaveCenter,GenerationNumbe
         else:
             DataTot=pd.concat([DataTotTemp,DataTot],axis=0)
 
-        FileCycle = pd.read_csv(Folder[j]+'\Cycle.csv')
+        FileCycle = pd.read_csv(Folder[j]+'/Cycle.csv')
         FileCycle['Mes']=j
         CycleStore = pd.concat([CycleStore, FileCycle], axis=0)
 
-    CycleStore=CycleStore.drop(labels='Unnamed: 0', axis=1)
+    try:
+        CycleStore=CycleStore.drop(labels='Unnamed: 0', axis=1)
+    except:
+        pass
 
     # We loaded all the data so we are going to move them for safe storage
-    os.makedirs(FileDir+'/Generation{}'.format(GenerationNumber), exist_ok=True)
-    for f in Folder:
-        FolderName=os.path.basename(f)
-        NewPath = os.path.join(FileDir+'/Generation{}'.format(GenerationNumber), FolderName)
-        shutil.move(f, NewPath)
+    if os.path.exists(FileDir+'/Generation{}'.format(GenerationNumber))==False:
+
+        os.makedirs(FileDir+'/Generation{}'.format(GenerationNumber), exist_ok=True)
+        for f in Folder:
+            FolderName=os.path.basename(f)
+            NewPath = os.path.join(FileDir+'/Generation{}'.format(GenerationNumber), FolderName)
+            shutil.move(f, NewPath)
 
     return DataTot, CycleStore, len(Folder)
 
@@ -680,12 +728,13 @@ if __name__ == '__main__':
 
     if not USE_DUMMY:
         os.system('cls')
-
+    # Value to reach on the powermeter (0,11,25,240,475)uW
+    P_calib = (500, 500, 800, 2100, 2800)
     #############################
     # Optimization parameters
     #############################
-    generations_budget = 4
-
+    generations_budget = 10
+    StartFromSeed=True
     #############################
     # TimeTrace parameters
     #############################
@@ -695,12 +744,12 @@ if __name__ == '__main__':
     BeamRadius = 15  # Minimum distance betweensuccesive point in um
 
     StabilityTime_Begin = 30  # Time for which it will probe at the beginning of the cycle
-    # The beam will then be block for this amount of time so that the sample 'reset'
-    StabilityTime_Reset = 30
+    StabilityTime_Reset = 30# The beam will then be block for this amount of time so that the sample 'reset'
     StabilityTime_End = 30  # Time for which it will probe at the end of the cycle
     # The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
     PowerProbePulsePicker = 500
     EmGainProbe = 0
+    FilterWheelPosCycle=2
 
     Spectrograph_slit = 50  # This is just for record not actually setting it up
     Spectrograph_Center = 700  # This is just for record not actually setting it up
@@ -710,7 +759,8 @@ if __name__ == '__main__':
     Time_Max = 30
     GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points': Nb_Points, 'Beam avoidance radius': BeamRadius,
                    'Stability time begin ': StabilityTime_Begin, 'Stability time reset': StabilityTime_Reset, 'Stability time end ': StabilityTime_End,
-                   'Power probe ': PowerProbePulsePicker, 'Em Gain probe': EmGainProbe, 'Spectrograph slit width': Spectrograph_slit, 'Spectrograph center Wavelength': Spectrograph_Center,
+                   'Power probe ': PowerProbePulsePicker, 'Em Gain probe': EmGainProbe,
+                     'Spectrograph slit width': Spectrograph_slit, 'Spectrograph center Wavelength': Spectrograph_Center,
                    'Note': 'The SHG unit from Coherent was used and ND1 for probe'}
 
     # FileDir = '/export/scratch2/constellation-data/EnhancePerov/output-dummy/'
@@ -723,12 +773,15 @@ if __name__ == '__main__':
     end_y = 79.5
 
     # Rough stage parameter
-    start_x_rough=5.8
-    start_y_rough=5.5
+    start_x_rough=4.7
+    start_y_rough=10.9
 
     ####
     # Initialisation of the Timetrace object
     ####
+    if StartFromSeed==True:
+        print('Select seed Directory')
+        SeedDirectory=FileControl.AskDirectory()
     # This object allow to run the timetrace, load the data, ...
     runner = timeTraceRunner(**GeneralPara)
     runner.initialize(start_x, end_x, start_y, end_y, BeamRadius, FileDir)
@@ -744,14 +797,24 @@ if __name__ == '__main__':
         PosRough=PosRough[index,:]
         runner.x_axis_Rough.MoveTo(PosRough[0,0])
         runner.y_axis_Rough.MoveTo(PosRough[0,1])
+        pd.DataFrame(PosRough).to_csv(runner.DirectoryPath+'/RoughPosSave.csv')
 
     # generate initial population
-    population = generateRandomParameters(Nb_Points, Nb_Cycle)
-    # run the experiment
-    # calculate fitness values
     FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
-    evaluateFitnessValues(population, runner.DirectoryPath,
+    if StartFromSeed==False:
+        population = generateRandomParameters(Nb_Points, Nb_Cycle,P_calib)
+        # run the experiment
+        runner.runTimeTrace(StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
+                        PowerProbePulsePicker, EmGainProbe, population,FilterWheelPosCycle)
+        evaluateFitnessValues(population, runner.DirectoryPath,
                           FolderCalibWavelength, Spectrograph_Center, Time_Min, Time_Max, 'M2',0)
+    else:
+        population,GenNumber=LoadPreviousPop(SeedDirectory,P_calib)
+        SeedFolderGen=glob.glob(SeedDirectory+'/Generation*')
+        evaluateFitnessValues(population, SeedFolderGen[-1],FolderCalibWavelength, Spectrograph_Center, Time_Min, Time_Max, 'M2',0)
+    # calculate fitness values
+    
+
 
     number_of_generations = 1
     while number_of_generations < generations_budget:  # generational loop
@@ -768,7 +831,7 @@ if __name__ == '__main__':
 
         # run the experiment
         runner.runTimeTrace(StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
-                            PowerProbePulsePicker, EmGainProbe, offspring)
+                            PowerProbePulsePicker, EmGainProbe, offspring,2)
         # calculate fitness values
         FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
         evaluateFitnessValues(offspring, runner.DirectoryPath,

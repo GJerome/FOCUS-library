@@ -21,6 +21,7 @@ import ControlPulsePicker as picker
 import ControlEMCCD as EMCCD
 import FileControl
 import ControlPiezoStage as Transla
+import ControlFilterWheel as FW
 
 
 #############################
@@ -28,23 +29,23 @@ import ControlPiezoStage as Transla
 #############################
 
 
-Nb_Points =150  # Number of position for the piezo
+Nb_Points =4  # Number of position for the piezo
 
-start_x =0.5
+start_x =40
 end_x = 79.5
-start_y = 0.5
+start_y = 40
 end_y = 79.5
 
 
 Nb_Cycle = 10# Number of cycle during experiment
 
-StabilityTime_Begin=45# Time for which it will probe at the beginning of the cycle
-StabilityTime_Reset=60# The beam will then be block for this amount of time so that the sample 'reset'
-StabilityTime_End = 45# Time for which it will probe at the end of the cycle
+StabilityTime_Begin=30# Time for which it will probe at the beginning of the cycle
+StabilityTime_Reset=30# The beam will then be block for this amount of time so that the sample 'reset'
+StabilityTime_End = 30# Time for which it will probe at the end of the cycle
 #The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
 
 PowerProbePulsePicker=500
-EmGainProbe=50
+EmGainProbe=0
 
 
 EachStepDifferentProbaPower=False
@@ -52,7 +53,7 @@ FileProbaPower='./PowerTimeExposureCycle/BestPropaPStep_20MHz_25-02-01-B4P9-ML-2
 
 EachStepDifferentProbaTime=False
 
-OnlyOneConfig=False # Set it  to true so that it only probe with one config for Nb_points
+OnlyOneConfig=True # Set it  to true so that it only probe with one config for Nb_points
 OnlyOneConfig_Random=False # Set it  to true so that this config is random
 OnlyOneConfig_UseCurentCalib=False #Not implemented yet, Set it  to true if you want it to use the current calibration or False if it should read the power send to the pulse picker from a file
 
@@ -60,7 +61,7 @@ ProbeDiffDivRatio= False #For the probing it set to true The staiblity time can 
 DivRatio=[40,4]# A list containing the different div ratio
 PowerProbe=[1800,500]# A list containing the power to use to probe
 
-Spectrograph_slit=100 # This is just for record not actually setting it up
+Spectrograph_slit=50 # This is just for record not actually setting it up
 Spectrograph_Center=700# This is just for record not actually setting it up
 
 FolderCalibWavelength='//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
@@ -178,7 +179,7 @@ rng = np.random.default_rng()
 
 if OnlyOneConfig==True:
     if OnlyOneConfig_Random==False:
-        FileConfig='./PowerTimeExposureCycle/PowerTimeCycles/BestCycle25-02-01-CsMaFaPbI0.87Br0.13-Si02.csv'
+        FileConfig='./PowerTimeExposureCycle/PowerTimeCycles/BestCycle_Gen3_25-03-01MlAnton.csv'
         print('Reading file {} for power/time config '.format(FileConfig))
         # For the moment we assume only one config
         Cycle_info=pd.read_csv(FileConfig)
@@ -238,7 +239,7 @@ elif 'ControlPiezoStage' in sys.modules:
 # Initialisation of the EMCCD
 #############################
 
-camera = EMCCD.LightFieldControl('ML')
+camera = EMCCD.LightFieldControl('ML2')
 FrameTime = camera.GetFrameTime()
 ExposureTime = camera.GetExposureTime()
 NumberOfFrame = camera.GetNumberOfFrame()
@@ -254,6 +255,9 @@ FM = ThorlabsShutter.ShutterControl("68800883",'Shutter')
 FM_ND = shutter.FlipMount("37007725",'ND1') # state 1 is the one with the ND
 InstrumentsPara['FlipMount']=FM.parameterDict | FM_ND.parameterDict
 print('Initialised Flip mount')
+
+FilterWheel = FW.FilterWheel('COM18')
+InstrumentsPara['FilterWheel'] = FilterWheel.parameterDict
 
 
 #############################
@@ -328,7 +332,7 @@ for k in IteratorMes:
 #############################
 # Camera setting adjustement
 #############################
-    NbFrameCycle = np.ceil((T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset+5)/FrameTime)
+    NbFrameCycle = np.ceil((T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset+3.6)/FrameTime)
     camera.SetNumberOfFrame(NbFrameCycle)
     print('Time cycle:{}'.format(t_cyc))
     print('Power cycle:{}'.format(p_cyc))
@@ -343,6 +347,7 @@ for k in IteratorMes:
 #############################
     print('Probe begin')
     FM_ND.ChangeState(1)
+    FilterWheel.set_position(1)
     if EmGainProbe!=0:
         camera.SetEMGain(EmGainProbe)
     FM.SetOpen() # Launch acquisition
@@ -369,7 +374,7 @@ for k in IteratorMes:
     FM_ND.ChangeState(0)
     time.sleep(StabilityTime_Reset)
     FM.SetOpen()
-
+    FilterWheel.set_position(2)
 #############################
 #Power/Time  iteration
 ############################# 
@@ -391,6 +396,7 @@ for k in IteratorMes:
 #############################
 
     FM_ND.ChangeState(1)
+    FilterWheel.set_position(1)
     FM.SetOpen()
     if EmGainProbe!=0:
         camera.SetEMGain(EmGainProbe)
@@ -421,7 +427,7 @@ for k in IteratorMes:
 Laser.SetStatusShutterTunable(0)
 print('Experiment Done: beginning loading file')
 
-def LoadData(Folder):
+def LoadData(FileDir):
     # Compute wavelength
     try:
         temp = pd.read_csv(FolderCalibWavelength, sep='\t', decimal=',')
@@ -430,34 +436,41 @@ def LoadData(Folder):
         b = temp.loc[:, 'b'].to_numpy()[0]
     except:
         print('Problem reading wavelength calibraton at : {}\n Taking default value'.format(FolderCalibWavelength))
-        a = 2.339
-        b = 470.069 
+        a = 2.354381287460651
+        b = 490.05901104995587
     PixelNumber = np.linspace(1, 1024, 1024)
     CenterPixel = Spectrograph_Center
     Wavelength = (PixelNumber-b)/a+CenterPixel
 
-    Folder = sorted(glob.glob('./Mes*'), key=lambda x: float(x[5:x.find('x')]))
+    Folder = sorted(glob.glob(FileDir+'/Mes*'),key=lambda x: float(x[x.find('Mes')+3:x.find('x')]))
     CycleStore = pd.DataFrame()
-    DataTot = []
+    DataTot = pd.DataFrame(columns=list(Wavelength)+['Time','Mes'])
     for j in range(len(Folder)):
-        
-        File = glob.glob(Folder[j]+'/*[0-9].spe')
-        if len(File)==0:
-            File = glob.glob(Folder[j]+'/*.spe')
+        print('\r Reading Files:{} %'.format(
+            np.round(100*j/len(Folder), 1)), end='', flush=True)
+        File = glob.glob(Folder[j]+'/*.spe')
         DataRaw = sl.load_from_files(File)
         MetaData = pd.DataFrame(DataRaw.metadata)
         TimeI = MetaData.loc[:, 0].to_numpy()/(1E6)  # Time in ms
-
-        DataTotTemp = pd.DataFrame(np.squeeze(
-            DataRaw.data[:][:]), columns=Wavelength)
+        DataTotTemp=pd.DataFrame(columns=list(Wavelength)+['Time','Mes'])
+        try:
+            DataTotTemp[Wavelength]=np.squeeze(DataRaw.data)
+        except Exception as e:
+            print('\n{}'.format(e))
+            exit
         DataTotTemp['Mes'] = j
         DataTotTemp['Time'] = TimeI
-        DataTot.append(DataTotTemp)
+        if DataTot.shape[0]==0:
+            DataTot=DataTotTemp
+        else:
+            DataTot=pd.concat([DataTotTemp,DataTot],axis=0)
 
         FileCycle = pd.read_csv(Folder[j]+'\Cycle.csv')
-        CycleStore = pd.concat([CycleStore, FileCycle], axis=1)
+        FileCycle['Mes']=j
+        CycleStore = pd.concat([CycleStore, FileCycle], axis=0)
 
-    DataTot = pd.concat(DataTot).set_index(['Mes', 'Time'])
+    CycleStore=CycleStore.drop(labels='Unnamed: 0', axis=1)
+    
     return DataTot, CycleStore
 
 Data, CycleStore = LoadData(DirectoryPath)
