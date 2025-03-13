@@ -35,6 +35,19 @@ class ShutterControl:
     def SetClose(self):
        pass 
 
+###################################################################
+
+class FilterWheel:
+    def __init__(self, serial):
+        self.name = serial
+        self.parameterDict = {}
+
+    def SetOpen(self):
+        pass
+        
+    def SetClose(self):
+       pass 
+
 
     
 ###################################################################
@@ -90,17 +103,22 @@ class LightFieldControl:
 
 class ConexController:
     def __init__(self, str):
+        self.parameterDict = {}
         pass
     
     def MoveTo(self, pos):
         print('Position: {}'.format(pos))
+    def GetPosition(self):
+        return 1
 
 class PiezoControl:
     def __init__(self, str):
+        self.parameterDict = {}
         pass
 
 class PiezoAxisControl:
     def __init__(self, piezo, axis,Timeout):
+        self.parameterDict = {}
         pass
     
     def MoveTo(self, pos):
