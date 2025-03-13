@@ -223,7 +223,7 @@ class timeTraceRunner:
     # TimeTrace loop
     #############################
     def runTimeTrace(self, StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
-                     PowerProbePulsePicker, EmGainProbe, sample_parameters, FilterWheelPosCycle=2):
+                     PowerProbePulsePicker, EmGainProbe, sample_parameters, FilterWheelPosCycle=2,TimeTransFilterWheel=1.6):
         '''The parameters are the following: 
         -df_t_cyc: list of the random time selected for one cycle
         -df_p_cyc: list of the random power selected for one cycle
@@ -692,6 +692,10 @@ if __name__ == '__main__':
     FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
     Time_Min = 20
     Time_Max = 30
+
+    FilterWheelPosCycle=2
+    TimeTransFilterWheel=1.6
+
     GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points': Nb_Points, 'Beam avoidance radius': BeamRadius,
                    'Stability time begin ': StabilityTime_Begin, 'Stability time reset': StabilityTime_Reset, 'Stability time end ': StabilityTime_End,
                    'Power probe ': PowerProbePulsePicker, 'Em Gain probe': EmGainProbe, 'Spectrograph slit width': Spectrograph_slit, 'Spectrograph center Wavelength': Spectrograph_Center,
@@ -716,10 +720,11 @@ if __name__ == '__main__':
     # This object allow to run the timetrace, load the data, ...
     runner = timeTraceRunner(**GeneralPara)
     runner.initialize(start_x, end_x, start_y, end_y, BeamRadius, FileDir)
-    runner.x_axis_Rough.MoveTo(start_x_rough)
-    runner.y_axis_Rough.MoveTo(start_y_rough)
+
 
     if UseBothRoughAndFineTransla==True:
+        runner.x_axis_Rough.MoveTo(start_x_rough)
+        runner.y_axis_Rough.MoveTo(start_y_rough)
         x_rough = np.linspace(runner.x_axis_Rough.GetPosition()-0.5, runner.x_axis_Rough.GetPosition()+0.5, int(np.floor(np.sqrt(generations_budget))))
         y_rough = np.linspace(runner.y_axis_Rough.GetPosition()-0.5, runner.y_axis_Rough.GetPosition()+0.5, int(np.ceil(np.sqrt(generations_budget))))  
         X, Y = np.meshgrid(x_rough, y_rough)
@@ -733,7 +738,7 @@ if __name__ == '__main__':
     population = generateRandomParameters(Nb_Points, Nb_Cycle)
     # run the experiment
     runner.runTimeTrace(StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
-                        PowerProbePulsePicker, EmGainProbe, population)
+                        PowerProbePulsePicker, EmGainProbe, population,FilterWheelPosCycle,TimeTransFilterWheel)
     # calculate fitness values
     FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
     evaluateFitnessValues(population, runner.DirectoryPath,
