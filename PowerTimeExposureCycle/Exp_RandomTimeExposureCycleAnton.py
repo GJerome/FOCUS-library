@@ -8,6 +8,7 @@ import numpy as np
 import sys
 import os
 import shutil
+import time as time
 from scipy.integrate import simpson
 USE_DUMMY = False
 os.system('cls')
@@ -33,7 +34,8 @@ else:
     import ControlPulsePicker as picker
     import ControlEMCCD as EMCCD
     import ControlPiezoStage as Transla
-    import time as time
+    import ML_Tools
+    import ControlKymera as spectrolib
     if UseBothRoughAndFineTransla==True:
         import ControlConex as RoughTransla
 
@@ -178,10 +180,21 @@ class timeTraceRunner:
         self.FM_ND = shutter.FlipMount("37007725", 'ND1')
         self.InstrumentsPara['FlipMount'] = self.FM.parameterDict | self.FM_ND.parameterDict
 
-        self.FilterWheel = FilterWheel.FilterWheel('COM18')
+        self.FilterWheel = FilterWheel.FilterWheel('COM18',False)
+        self.FilterWheel.set_speed_mode('high')
         self.InstrumentsPara['FilterWheel'] = self.FilterWheel.parameterDict
 
         print('Initialised Flip mount and Filter wheel')
+
+        #############################
+        # Initialisation of the spectrometer
+        #############################
+
+        self.spectro = spectrolib.KymeraSpectrograph()
+
+        self.InstrumentsPara['Spectrograph'] = self.spectro.parameterDict
+        print('Initialised spectro')
+        
 
     #############################
     # Initialisation of the Translation system
@@ -191,7 +204,7 @@ class timeTraceRunner:
             if 'ControlConex' in sys.modules:
                 self.x_axis = Transla.ConexController('COM12')
                 self.y_axis = Transla.ConexController('COM13')
-                self.InstrumentsPara['Rough Stage']=self.x_axis_Rough.parameterDict | self.y_axis_Rough.parameterDict 
+                self.InstrumentsPara['Rough Stage']=self.x_axis.parameterDict | self.y_axis.parameterDict 
                 print('Initialised rough translation stage')
             elif 'ControlPiezoStage' in sys.modules or USE_DUMMY:
                 piezo = Transla.PiezoControl('COM15')
@@ -207,6 +220,7 @@ class timeTraceRunner:
             piezo = Transla.PiezoControl('COM15')
             self.x_axis = Transla.PiezoAxisControl(piezo, 'y', 3)
             self.y_axis = Transla.PiezoAxisControl(piezo, 'z', 3)
+            self.z_axis=Transla.PiezoAxisControl(piezo, 'x', 3)
             self.InstrumentsPara['PiezoStage']=piezo.parameterDict
 
     #############################
@@ -244,8 +258,9 @@ class timeTraceRunner:
         IteratorCyc = np.nditer(CycNumber, flags=['f_index'])
 
         self.Laser.SetStatusShutterTunable(1)
-        self.FM.SetClose()
+        
         for k in IteratorMes:
+            self.FM.SetClose()
             #############
             # Generation of the folder and measurement prep
             #############
@@ -305,7 +320,9 @@ class timeTraceRunner:
             ###############
             # Stability time beginning
             ###############
-            print('Stability time beginning')
+            print('\r'+ " " * 40, end='', flush=True)
+            print('\r Stability time beginning', end='', flush=True)
+            
             self.pp.SetPower(PowerProbePulsePicker)
             time.sleep(StabilityTime_Begin)
             if EmGainProbe != 0:
@@ -314,7 +331,9 @@ class timeTraceRunner:
             ###############
             # Reset  time
             ###############
-            print('Reset time')
+            print('\r'+ " " * 40, end='', flush=True)
+            print('\r Reset time', end='', flush=True)
+        
             self.FM.SetClose()
             self.FM_ND.ChangeState(0)
             time.sleep(StabilityTime_Reset)
@@ -326,8 +345,10 @@ class timeTraceRunner:
             #############################
 
             for j in IteratorCyc:
-                print('Cycle {}: P={},t={}'.format(IteratorCyc.index,
-                      p_cyc[IteratorCyc.index], t_cyc[IteratorCyc.index]))
+                print('\r'+ " " * 40, end='', flush=True)
+                print('\r Cycle {}: P={},t={}'.format(IteratorCyc.index,
+                      p_cyc[IteratorCyc.index], t_cyc[IteratorCyc.index]), end='', flush=True)
+
                 if p_cyc[IteratorCyc.index] == 0:
                     self.FM.SetClose()
                 elif p_cyc[IteratorCyc.index] != 0:
@@ -336,12 +357,12 @@ class timeTraceRunner:
                 t_sync[IteratorCyc.index] = time.time()-t0
                 time.sleep(t_cyc[IteratorCyc.index])
             IteratorCyc.reset()
-
+            self.FM.SetClose()
             #############################
             # Stability time at the end
             #############################
-
-            print('Stability Time end')
+            print('\r'+ " " * 40, end='', flush=True)
+            print('\r Stability Time end') 
             self.FilterWheel.set_position(1)
             self.FM.SetOpen()
             self.FM_ND.ChangeState(1)
@@ -499,7 +520,8 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
         FitDataResult_End = pd.DataFrame(index=dataFit_End.index, columns=dataFit_End.columns)
 
         for j in dataFit_End.index:
-            FitDataResult_End.loc[j, :] = dataFit_End.loc[j, :].rolling(5, min_periods=1).mean()
+            Floor=np.abs(dataFit_End.loc[j,:].rolling(5,min_periods=1).mean().min())
+            FitDataResult_End.loc[j, :] = dataFit_End.loc[j, :].rolling(5, min_periods=1).mean()-Floor
         FitDataResult_End['Mes'] = i
 
         FitAll_End = pd.concat([FitAll_End, FitDataResult_End], axis=0)
@@ -507,7 +529,8 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
         FitDataResult_Begin = pd.DataFrame(index=dataFit_Begin.index, columns=dataFit_Begin.columns)
 
         for j in dataFit_Begin.index:
-            FitDataResult_Begin.loc[j, :] = dataFit_Begin.loc[j, :].rolling(5, min_periods=1).mean()
+            Floor=np.abs(dataFit_Begin.loc[j,:].rolling(5,min_periods=1).mean().min())
+            FitDataResult_Begin.loc[j, :] = dataFit_Begin.loc[j, :].rolling(5, min_periods=1).mean()-Floor
         FitDataResult_Begin['Mes'] = i
 
         FitAll_Begin = pd.concat([FitAll_Begin, FitDataResult_Begin], axis=0)
@@ -567,6 +590,26 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
 
     print("# FITNESS VALUES #")
     print(fitness_values)
+
+    ML_Data_Shared=pd.DataFrame(index=range(Nb_pts),
+                            columns=['Power step','Time step','S1','S2',
+                                     'Script Version','Dataset name','S1 full','S2 full',
+                                     'Reset time','fitness'])
+
+    for i in range(Nb_pts):
+        ML_Data_Shared.loc[i,'Power step']=[p_cyc.loc[:,i]]
+        ML_Data_Shared.loc[i,'Time step']=[TimeCycle.loc[:,i]]
+        ML_Data_Shared.loc[i,'S1']=FitAll_Begin.loc[(FitAll_Begin['Mes']==i) & (FitAll_Begin.index>10),:].iloc[:,:-1].max(axis=1).mean()
+        ML_Data_Shared.loc[i,'S2']=FitAll_End.loc[(FitAll_End['Mes']==i) & (FitAll_End.index>10),:].iloc[:,:-1].max(axis=1).mean()
+        ML_Data_Shared.loc[i,'Script Version']="2025-03-18"
+        ML_Data_Shared.loc[i,'Dataset name']='N.A'
+        ML_Data_Shared.loc[i,'S1 full']=[M_all.loc[i,'S1'][0]]
+        ML_Data_Shared.loc[i,'S2 full']=[M_all.loc[i,'S2'][0]]
+        ML_Data_Shared.loc[i,'Reset time']=StabilityTime_reset
+        ML_Data_Shared.loc[i,'fitness']=fitness_values[i]
+
+
+    ML_Data_Shared.to_pickle('./ML_Data_Shared_Gen{}.pkl'.format(GenerationNumber))
 
 
 def get_best_solution(candidates):
@@ -720,6 +763,12 @@ def LoadDataFromFiles(FileDir, FolderCalibWavelength, WaveCenter,GenerationNumbe
             FolderName=os.path.basename(f)
             NewPath = os.path.join(FileDir+'/Generation{}'.format(GenerationNumber), FolderName)
             shutil.move(f, NewPath)
+        try:
+            shutil.copy(FileDir+'/Position.csv',FileDir+'/Generation{}/Position.csv'.format(GenerationNumber))
+            shutil.copy(FileDir+'/ExperimentParameter.txt',FileDir+'/Generation{}/ExperimentParameter.txt'.format(GenerationNumber))
+        except Exception as e:
+            print('Warning: problem trying to copy Position.csv and ExperimentParameter.txt')
+            print(e)
 
     return DataTot, CycleStore, len(Folder)
 
@@ -728,44 +777,48 @@ if __name__ == '__main__':
 
     if not USE_DUMMY:
         os.system('cls')
+    PlaneCoefficient=np.array([ -3.7526087,   -8.6386087,  138.71903478])
+
     # Value to reach on the powermeter (0,11,25,240,475)uW
-    P_calib = (500, 500, 800, 2100, 2800)
+    P_calib = (500, 500, 900, 2200, 2900)
     #############################
     # Optimization parameters
     #############################
-    generations_budget = 10
-    StartFromSeed=True
+    generations_budget = 20
+    StartFromSeed=False
     #############################
     # TimeTrace parameters
     #############################
-    Nb_Points = 100  # Number of position for the piezo
+    Nb_Points = 1 # Number of position for the piezo
     Nb_Cycle = 10  # Number of cycle during experiment
 
-    BeamRadius = 15  # Minimum distance betweensuccesive point in um
+    BeamRadius = 25  # Minimum distance betweensuccesive point in um
 
-    StabilityTime_Begin = 30  # Time for which it will probe at the beginning of the cycle
-    StabilityTime_Reset = 30# The beam will then be block for this amount of time so that the sample 'reset'
-    StabilityTime_End = 30  # Time for which it will probe at the end of the cycle
+    StabilityTime_Begin = 60  # Time for which it will probe at the beginning of the cycle
+    StabilityTime_Reset = 60# The beam will then be block for this amount of time so that the sample 'reset'
+    StabilityTime_End = 60  # Time for which it will probe at the end of the cycle
     # The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
     PowerProbePulsePicker = 500
-    EmGainProbe = 0
-    FilterWheelPosCycle=2
+    EmGainProbe = 100
+    
 
     Spectrograph_slit = 50  # This is just for record not actually setting it up
     Spectrograph_Center = 700  # This is just for record not actually setting it up
 
     FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
-    Time_Min = 20
-    Time_Max = 30
+    Time_Min = 40
+    Time_Max = 60
 
-    FilterWheelPosCycle=2
-    TimeTransFilterWheel=1.6
+    FilterWheelPosCycle=6
+    TimeTransFilterWheel=2.76
 
     GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points': Nb_Points, 'Beam avoidance radius': BeamRadius,
                    'Stability time begin ': StabilityTime_Begin, 'Stability time reset': StabilityTime_Reset, 'Stability time end ': StabilityTime_End,
                    'Power probe ': PowerProbePulsePicker, 'Em Gain probe': EmGainProbe,
                      'Spectrograph slit width': Spectrograph_slit, 'Spectrograph center Wavelength': Spectrograph_Center,
-                   'Note': 'The SHG unit from Coherent was used and ND1 for probe'}
+                    'FilterWheel Pos':FilterWheelPosCycle,'Time Transi':TimeTransFilterWheel,
+                   'Note': 'The SHG unit from Coherent was used and ND1 for probe,beam 1.7um',
+                    'Note Imp': 'Added an ND1 before the spatial filter to reduce power but didnt change the pulse picker power'}
 
     # FileDir = '/export/scratch2/constellation-data/EnhancePerov/output-dummy/'
     FileDir = 'output-dummy/'
@@ -777,9 +830,8 @@ if __name__ == '__main__':
     end_y = 79.5
 
     # Rough stage parameter
-    start_x_rough=4.7
-    start_y_rough=10.9
-
+    start_x_rough=9.1
+    start_y_rough=8.4
     ####
     # Initialisation of the Timetrace object
     ####
@@ -794,20 +846,26 @@ if __name__ == '__main__':
     if UseBothRoughAndFineTransla==True:
         runner.x_axis_Rough.MoveTo(start_x_rough)
         runner.y_axis_Rough.MoveTo(start_y_rough)
-        x_rough = np.linspace(runner.x_axis_Rough.GetPosition()-0.5, runner.x_axis_Rough.GetPosition()+0.5, int(np.floor(np.sqrt(generations_budget))))
-        y_rough = np.linspace(runner.y_axis_Rough.GetPosition()-0.5, runner.y_axis_Rough.GetPosition()+0.5, int(np.ceil(np.sqrt(generations_budget))))  
+        x_rough = np.linspace(runner.x_axis_Rough.GetPosition(), runner.x_axis_Rough.GetPosition()+1, int(np.floor(np.sqrt(generations_budget))))
+        y_rough = np.linspace(runner.y_axis_Rough.GetPosition(), runner.y_axis_Rough.GetPosition()+1, int(np.ceil(np.sqrt(generations_budget))))  
         X, Y = np.meshgrid(x_rough, y_rough)
         PosRough = np.stack([X.ravel(), Y.ravel()], axis=-1)
         index=random.sample(range(0, PosRough.shape[0]), PosRough.shape[0])
         PosRough=PosRough[index,:]
+
         runner.x_axis_Rough.MoveTo(PosRough[0,0])
         runner.y_axis_Rough.MoveTo(PosRough[0,1])
+
+        runner.z_axis.MoveTo(ML_Tools.Find_zFromEq(PosRough[0,0],PosRough[0,1],PlaneCoefficient))
         pd.DataFrame(PosRough).to_csv(runner.DirectoryPath+'/RoughPosSave.csv')
 
+        print('Pos: x={}mm,y={}mm ,z={}um'.format(np.round(runner.x_axis_Rough.GetPosition(),3),np.round(runner.y_axis_Rough.GetPosition(),3),np.round(runner.z_axis.GetPosition(),3)))
+        
+    time.sleep(10)
     # generate initial population
     FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
     if StartFromSeed==False:
-        population = generateRandomParameters(Nb_Points, Nb_Cycle,P_calib)
+        population = generateRandomParameters(runner.Nb_Points, Nb_Cycle,P_calib)
         # run the experiment
         runner.runTimeTrace(StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
                         PowerProbePulsePicker, EmGainProbe, population,FilterWheelPosCycle)
@@ -830,13 +888,14 @@ if __name__ == '__main__':
         if UseBothRoughAndFineTransla==True:
             runner.x_axis_Rough.MoveTo(PosRough[number_of_generations,0])
             runner.y_axis_Rough.MoveTo(PosRough[number_of_generations,1])
-
+            runner.z_axis.MoveTo(ML_Tools.Find_zFromEq(PosRough[number_of_generations,0],PosRough[number_of_generations,1],PlaneCoefficient))
+            print('Pos: x={}mm,y={}mm ,z={}um'.format(np.round(runner.x_axis_Rough.GetPosition(),3),np.round(runner.y_axis_Rough.GetPosition(),3),np.round(runner.z_axis.GetPosition(),3)))
 
         offspring = makeOffspring(population)
 
         # run the experiment
         runner.runTimeTrace(StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
-                            PowerProbePulsePicker, EmGainProbe, offspring,2)
+                            PowerProbePulsePicker, EmGainProbe, offspring,FilterWheelPosCycle)
         # calculate fitness values
         FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
         evaluateFitnessValues(offspring, runner.DirectoryPath,
