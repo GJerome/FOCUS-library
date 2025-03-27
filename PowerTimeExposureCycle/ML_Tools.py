@@ -10,9 +10,9 @@ import matplotlib.pyplot as plt
 
 import ControlPiezoStage as Transla
 import ControlLaser as laser
-import ControlKymera as spectrolib
+
 import ControlPiezoStage as Transla
-import ControlEMCCD as EMCCD
+
 import FileControl
 
 
@@ -175,6 +175,9 @@ def FindPlaneEquation(DataFolder,WaveCalibFolder,WavelengthSpectro,Camera,PiezoA
     return Coeff
 
 if __name__ == '__main__':
+    import ControlKymera as spectrolib
+    import ControlEMCCD as EMCCD
+
     
     FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
 
