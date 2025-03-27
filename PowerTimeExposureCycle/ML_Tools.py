@@ -12,31 +12,42 @@ import ControlPiezoStage as Transla
 import ControlLaser as laser
 
 import ControlPiezoStage as Transla
+import ControlConex as RoughTransla
 
 import FileControl
+from scipy.optimize import curve_fit
 
 
-def Find_NormalVector(x,y,z):
-    ''''Take three points stored such as A=(x[0],y[0],z[o]),B=(x[1],y[1],z[1]),C=(x[2],y[2],z[2]).
-    We assume that they are in the same unit.'''
-    AB=np.array([x[1]-x[0],y[1]-y[0],z[1]-z[0]])
-    AC=np.array([x[2]-x[0],y[2]-y[0],z[2]-z[0]])
-    n=np.cross(AB,AC)
-    n2=[AB[1]*AC[2]-AC[1]*AB[2],AB[2]*AC[0]-AB[0]*AC[2],AB[0]*AC[1]-AC[0]*AB[1]]
-    return n2
+def intensity_z(z, I0, z0, zR, I_background=0):
+    """
+    Calculate the intensity profile along the z-axis.
 
-def Find_PlaneEq(Px,Py,Pz):
-    '''We assume that the reading of x,y,z, come from different device so Px,Py should be in mm and Pz in um.'''
-    Pz=Pz*1E-3
-    n=Find_NormalVector(Px,Py,Pz)
-    d=n[0]*Px[0]+n[1]*Py[0]+n[2]*Pz[0]
-    return np.append(n,[d])
+    Parameters:
+    - z: position along the z-axis (scalar or array)
+    - I0: peak intensity at the focus
+    - z0: position of the focus along the z-axis
+    - zR: Rayleigh length
+    - I_background: background intensity (default = 0)
+
+    Returns:
+    - Intensity I(z) at position z
+    """
+    return I0 / (1 + ((z - z0)/zR)**2) + I_background
+
 
 def Find_zFromEq(x,y,Coeff):
     '''x,y represent the position in which we want to find the z and Coeff should be a numpy array for which
       ax+by+cz=d => Coeff[0]*x+Coeff[1]*y+Coeff[2]*z=Coeff[3]'''
-    z=(Coeff[3]-(Coeff[0]*x+Coeff[1]*y))/[Coeff[2]]
+    z=Coeff[0]*x+Coeff[1]*y+Coeff[2]
     return z
+
+def best_fit_plane(x, y, z):
+    """Computes the best-fit plane equation z = Ax + By + C for given x, y, z data points
+    using the least squares method."""
+
+    X = np.column_stack((x, y, np.ones_like(x)))
+    coefficients, _, _, _ = np.linalg.lstsq(X, z,rcond=None)
+    return coefficients  # A, B, C
 
 
 def LoadDataFromFiles(FileDir, FolderCalibWavelength, WaveCenter):
@@ -80,12 +91,11 @@ def LoadDataFromFiles(FileDir, FolderCalibWavelength, WaveCenter):
     return DataTot
 
 def DoFocusAcqSeries(camera,PiezoAxis):
-    Piezo_zPos=np.linspace(start=0.1,stop=79.9,num=50)
+    Piezo_zPos=np.linspace(start=0.1,stop=79.9,num=100)
     NbFrame=camera.GetNumberOfFrame()
-    print(NbFrame)
-    camera.SetNumberOfFrame(20.)
+    camera.SetNumberOfFrame(3.)
     for pos in Piezo_zPos:
-        print(pos)
+        print('\r Focus finding :{} %'.format(np.round(100*pos/Piezo_zPos[-1], 1)), end='', flush=True)
         PiezoAxis.MoveTo(pos)
         camera.Acquire()
         camera.WaitForAcq()
@@ -108,18 +118,17 @@ def FindFocus(DataFolder,WaveCalibFolder,WavelengthSpectro,Camera,PiezoAxis,PosR
     -PiezoAxis: a PiezoAxisControl from ControlPiezo
 
     -PosRoughAxis: an array containing the [x,y] position of the rough axis this is only used for saving the data file'''
-    DataFolderRaw=DataFolder+'/RawDataFocusFind/Datax={}y={}/'.format(np.round(PosRoughAxis[0],3),np.round(PosRoughAxis[1],3))
+    DataFolderRaw=DataFolder+'/RawDataFocusFind/Datax={}y={}'.format(np.round(PosRoughAxis[0],3),np.round(PosRoughAxis[1],3))
     os.makedirs(DataFolderRaw, exist_ok=True)
 
     # Acquisition
-    camera.SetSaveDirectory(DataFolderRaw)    
+    camera.SetSaveDirectory(DataFolderRaw.replace('/', "\\"))    
     zPos=DoFocusAcqSeries(Camera,PiezoAxis)
 
     # Load data
     Data=LoadDataFromFiles(DataFolderRaw,WaveCalibFolder,WavelengthSpectro)
     Data.to_pickle(DataFolder+"/RawDataFocusFind/Datax={}y={}.pkl".format(np.round(PosRoughAxis[0],3),np.round(PosRoughAxis[1],3)))
     pd.DataFrame(zPos,columns=['z']).to_csv(DataFolder+"/RawDataFocusFind/Zpos_x={}y={}.csv".format(np.round(PosRoughAxis[0],3),np.round(PosRoughAxis[1],3)))
-
     # Here the focus is assumed just to be the point in which there is a maximum. With a fit 
     # it sometimes doesnt fit well because of a reflection which create a sholder in the peak.
     Mes_posz=Data.loc[:,'Mes'].unique()
@@ -127,23 +136,27 @@ def FindFocus(DataFolder,WaveCalibFolder,WavelengthSpectro,Camera,PiezoAxis,PosR
 
     for ztemp in Mes_posz:
         DataTemp=Data.loc[ Data['Mes']==ztemp,:].iloc[:,:-2]
-        temp=pd.DataFrame()
-        temp['z']=zPos.iloc[int(ztemp)]
-        temp['Mean of max']=DataTemp.max(axis=1).mean()
-        temp['std']=DataTemp.max(axis=1).std()
+        temp=pd.DataFrame({'z':zPos[int(ztemp)],'Mean of max':DataTemp.max(axis=1).mean(),'std':DataTemp.max(axis=1).std()},index=[0])
         DataAgg=pd.concat([DataAgg,temp],axis=0,ignore_index=True)
+    DataAgg=DataAgg.dropna()
+    p_opt,p_cov=curve_fit(intensity_z,xdata=DataAgg.loc[:,'z'],ydata=DataAgg.loc[:,'Mean of max'])
     
-    FocusPos=Data.loc[Data['Mean of max'].idxmax(axis=0),'z']
+    z_fit=np.linspace(start=0.1,stop=79.9,num=500)
+    Data_fit=intensity_z(z_fit,p_opt[0],p_opt[1],p_opt[2],p_opt[3])
+    FocusPos=DataAgg.loc[DataAgg['Mean of max'].idxmax(axis=0),'z']
 
     fig,ax=plt.subplots(1,1)
-    ax.errorbar(DataAgg['z'],DataAgg['Mean of max'],yerr=DataAgg['std'])
+    ax.errorbar(DataAgg['z'],DataAgg['Mean of max'],yerr=DataAgg['std'],label=str(np.round(FocusPos,3)))
+    ax.plot(z_fit,Data_fit)
     ax.plot([FocusPos,FocusPos],ax.get_ylim())
+    ax.set_xlabel('z[$\mu$m]')
+    plt.legend()
     plt.savefig(DataFolderRaw+'/MaxIntZ.png')
     plt.close(fig)
 
     return FocusPos
 
-def FindPlaneEquation(DataFolder,WaveCalibFolder,WavelengthSpectro,Camera,PiezoAxis,PosRoughAxis):
+def FindPlaneEquation(DataFolder,WaveCalibFolder,WavelengthSpectro,Camera,PiezoAxis,PosRoughAxis,x_rough,y_rough):
     ''''This function will find the plane equation that can be used to correct for sample tilt.
     The argument are the following:
 
@@ -157,21 +170,25 @@ def FindPlaneEquation(DataFolder,WaveCalibFolder,WavelengthSpectro,Camera,PiezoA
 
     -PiezoAxis: a PiezoAxisControl from ControlPiezo
 
-    -PosRoughAxis: an 2D array containing the [x,y] position of the rough axis, each line correspond to a given point. '''
+    -PosRoughAxis: an 2D array containing the [x,y] position of the rough axis, each line correspond to a given point. 
+    -x_rough,y_rough the conex controller axis'''
+
+    
 
     Nb_points=PosRoughAxis.shape[0]
-    if Nb_points>3:
-        print('FindPlaneEquation warning: More than three point given, measuring all but only taking into account the first three')
     if Nb_points<3:
         print('FindPlaneEquation error: system undefined please provide more points')
         sys.exit()
     Points=pd.DataFrame(index=range(Nb_points),columns=['x[mm]','y[mm]','z[um]'])
-    for i in range(Nb_points):
-        Points[i,'x[mm]']=PosRoughAxis[i,0]
-        Points[i,'y[mm]']=PosRoughAxis[i,0]
-        Points[i,'z[um]']=FindFocus(DataFolder,WaveCalibFolder,WavelengthSpectro,Camera,PiezoAxis,PosRoughAxis)
 
-    Coeff=Find_PlaneEq(Points.loc[0:3,'x[mm]'],Points.loc[0:3,'y[mm]'],Points.loc[0:3,'z[um]'])
+    for i in range(Nb_points):
+        x_rough.MoveTo(PosRoughAxis[i,0])
+        y_rough.MoveTo(PosRoughAxis[i,1])
+        Points.loc[i,'x[mm]']=PosRoughAxis[i,0]
+        Points.loc[i,'y[mm]']=PosRoughAxis[i,1]
+        Points.loc[i,'z[um]']=FindFocus(DataFolder,WaveCalibFolder,WavelengthSpectro,Camera,PiezoAxis,PosRoughAxis[i,:])
+        print(Points)
+    Coeff=best_fit_plane(Points.loc[:,'x[mm]'].astype('float'),Points.loc[:,'y[mm]'].astype('float'),Points.loc[:,'z[um]'].astype('float'))
     return Coeff
 
 if __name__ == '__main__':
@@ -216,6 +233,11 @@ if __name__ == '__main__':
     z_axis = Transla.PiezoAxisControl(piezo, 'x', 3)
     InstrumentsPara['PiezoStage']=piezo.parameterDict
 
+    x_axis_Rough = RoughTransla.ConexController('COM12')
+    y_axis_Rough = RoughTransla.ConexController('COM13')
+    InstrumentsPara['Rough Stage']=x_axis_Rough.parameterDict | y_axis_Rough.parameterDict 
+    print('Initialised rough translation stage')
+
     print('Directory staging, please check other window')
 
     #############################
@@ -233,11 +255,12 @@ if __name__ == '__main__':
     InstrumentsPara['PI EMCCD'] = camera.parameterDict
     print('Initialised EMCCD')
     Laser.SetStatusShutterTunable(1)
-
-    x=[0,0,1]
-    y=[0,1,0]
+    x_begin=9.6
+    y_begin=10
+    x=[x_begin,x_begin+1,x_begin,x_begin+1,x_begin-1,x_begin-1]
+    y=[y_begin,y_begin,y_begin+1,y_begin+1,y_begin,y_begin-1]
     Pos=np.transpose(np.array([x,y]))
 
-    Coeff=FindPlaneEquation(DirectoryPath,FolderCalibWavelength,spectro.GetWavelength(),camera,z_axis,Pos)
+    Coeff=FindPlaneEquation(DirectoryPath,FolderCalibWavelength,spectro.GetWavelength(),camera,z_axis,Pos,x_axis_Rough,y_axis_Rough)
     print(Coeff)
     
