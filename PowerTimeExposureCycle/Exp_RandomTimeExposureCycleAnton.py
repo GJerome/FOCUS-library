@@ -767,37 +767,52 @@ if __name__ == '__main__':
     #############################
     # Optimization parameters
     #############################
-    generations_budget = 20
+    generations_budget = 10
     StartFromSeed=False
 
     #############################
-    # TimeTrace parameters
+    # Position parameters
     #############################
-    Nb_Points_Generation = 1 # Number of cycle per generations
-    Nb_points_Piezo=5 # Number of position for the piezo
-    Nb_Cycle = 10  # Number of cycle during experiment
-
-    BeamRadius = 25  # Minimum distance betweensuccesive point in um
+    Nb_Points_Generation = 100 # Number of cycle per generations
+    Nb_points_Piezo=9 # Number of position for the piezo
+    BeamRadius = 30  # Minimum distance betweensuccesive point in um
     SpacingRoughFine=0.150
 
+    # Rough stage parameter
+    start_x_rough=9.1
+    start_y_rough=8.4
+
+    #############################
+    # Cycles paramters
+    #############################
+    Nb_Cycle = 10  # Number of cycle during experiment
     StabilityTime_Begin = 60  # Time for which it will probe at the beginning of the cycle
     StabilityTime_Reset = 60# The beam will then be block for this amount of time so that the sample 'reset'
     StabilityTime_End = 60  # Time for which it will probe at the end of the cycle
     # The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
+
+    Time_Min = 40
+    Time_Max = 60
+    
+    #############################
+    # Detection parameters
+    #############################
     PowerProbePulsePicker = 500
     EmGainProbe = 100
-    
 
+    #############################
+    # FW parameters
+    #############################
+    FilterWheelPosCycle=6
+    TimeTransFilterWheel=2.76
+    
+    #############################
+    # Misc
+    #############################
     Spectrograph_slit = 50  # This is just for record not actually setting it up
     Spectrograph_Center = 700  # This is just for record not actually setting it up
 
     FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
-    Time_Min = 40
-    Time_Max = 60
-
-    FilterWheelPosCycle=6
-    TimeTransFilterWheel=2.76
-
     GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points': np.ceil(Nb_Points_Generation/Nb_points_Piezo)*generations_budget*Nb_points_Piezo, 
                     'Nb_points_Generation':Nb_Points_Generation,'Nb_points_piezo':Nb_points_Piezo,
                     'Beam avoidance radius': BeamRadius,'SpacingRoughFine':SpacingRoughFine,
@@ -811,10 +826,6 @@ if __name__ == '__main__':
     # FileDir = '/export/scratch2/constellation-data/EnhancePerov/output-dummy/'
     FileDir = 'output-dummy/'
 
-
-    # Rough stage parameter
-    start_x_rough=9.1
-    start_y_rough=8.4
 
     #############################
     # Initialisation of the Timetrace object
