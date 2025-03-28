@@ -77,71 +77,38 @@ class timeTraceRunner:
         if 'Nb_points' not in self.GeneralPara:
             raise ValueError(
                 'Parameters must contain the number of points [\'Nb_points\']')
-        self.Nb_Points = GeneralPara['Nb_points']
+        self.Nb_points_Generation=self.GeneralPara['Nb_points_Generation']
+        
 
-    def initialize(self, start_x, end_x, start_y, end_y, BeamRadius, FileDir):
-        self.initializePiezo(start_x, end_x, start_y, end_y, BeamRadius)
+    def initialize(self, start_x_rough, start_y_rough, BeamRadius,Coeff,SpacingBetweenRough_p,FileDir):
+        self.initializePos(generations_budget,Nb_Points_Generation,Nb_points_Piezo,
+                                     Coeff,BeamRadius=BeamRadius,
+                                     startX_rough=start_x_rough,startY_rough=start_y_rough,
+                                     SpacingBetweenRough=SpacingBetweenRough_p)
         self.initializeInstruments()
         self.initializeTranslation()
         self.initializeOutputDirectory(FileDir)
 
     #############################
-    # Piezo parameter
+    # Position paramter
     #############################
 
-    def initializePiezo(self, start_x, end_x, start_y, end_y, BeamRadius):
-        '''This function generate a list of point that is going to be used by the piezo. 
-        We first start by generateting either an array or a line of point depanding on the
-         starting parameter. Then the point or randomy shuffled and checked if each succesive one 
-         is not within  BeamRadius of each other. If it is then it get the one closest one which is not.'''
+    def initializePos(self,generations_budget,Nb_Points_Generation,Nb_points_Piezo,
+                                     Coeff,BeamRadius,
+                                     startX_rough,startY_rough,SpacingBetweenRough):
 
-        # Generating line or array linearly spaced
-        if start_x == end_x:
-            x = np.array([start_x])
-            y = np.linspace(start_y, end_y, int(Nb_Points))
-        elif start_y == end_y:
-            y = np.array([start_y])
-            x = np.linspace(start_x, end_x, int(Nb_Points))
-        else:
-            x = np.linspace(start_x, end_x, int(np.floor(np.sqrt(Nb_Points))))
-            y = np.linspace(start_y, end_y, int(np.ceil(np.sqrt(Nb_Points))))
-
-        X, Y = np.meshgrid(x, y)
-
-        self.Pos = np.stack([X.ravel(), Y.ravel()], axis=-1)
-
-        # Randomly shuffle position
-        index = random.sample(range(0, self.Pos.shape[0]), self.Pos.shape[0])
-        self.Pos = self.Pos[index, :]
-
-        # Avoid point which are too close too each other
-        PosFiltered = np.empty(self.Pos.shape)
-        for index in range(self.Nb_Points):
-            if index == 0:
-                PosFiltered[index, :] = self.Pos[0, :]
-                self.Pos = np.delete(self.Pos, 0, 0)
-            else:
-                if DistanceTwoPoint(PosFiltered[index-1, :], self.Pos[0, :]) < BeamRadius:
-                    a = np.argmax(DistanceArray(
-                        PosFiltered[index-1, :], self.Pos) > BeamRadius)
-                    PosFiltered[index, :] = self.Pos[a, :]
-                    self.Pos = np.delete(self.Pos, a, 0)
-                    if a == 0:
-                        print(
-                            'Could not find a point not within the beam avoidance radius.')
-                else:
-                    PosFiltered[index, :] = self.Pos[0, :]
-                    self.Pos = np.delete(self.Pos, 0, 0)
-
-        self.Pos = PosFiltered
+        self.Pos=ML_Tools.Generate_RandomPositionRoughFine(generations_budget,Nb_Points_Generation,
+                                                           Nb_points_Piezo,
+                                     Coeff,BeamRadius,
+                                     startX_rough,startY_rough,SpacingBetweenRough)
         self.GeneralPara['Nb_points'] = self.Pos.shape[0]
         self.Nb_Points = self.Pos.shape[0]
 
         try:
-            print('Number of Points:{}-{}\nDistance between points:\n\t x ={} \n\t y ={}'.format(
-                self.Nb_Points, self.Pos.shape[0], x[1]-x[0], y[1]-y[0]))
+            print('Number of Points:{}-{}\n'.format(self.Nb_Points, self.Pos.shape[0]))
         except IndexError:
             print('Number of Points:{}\n'.format(self.Pos.shape[0]))
+
 
     def initializeInstruments(self):
         self.InstrumentsPara = {}
@@ -191,7 +158,6 @@ class timeTraceRunner:
         #############################
 
         self.spectro = spectrolib.KymeraSpectrograph()
-
         self.InstrumentsPara['Spectrograph'] = self.spectro.parameterDict
         print('Initialised spectro')
         
@@ -241,16 +207,13 @@ class timeTraceRunner:
     # TimeTrace loop
     #############################
     def runTimeTrace(self, StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
-                     PowerProbePulsePicker, EmGainProbe, sample_parameters, FilterWheelPosCycle=2,TimeTransFilterWheel=1.6):
-        '''The parameters are the following: 
-        -df_t_cyc: list of the random time selected for one cycle
-        -df_p_cyc: list of the random power selected for one cycle
-        -df_p_cyc_calib: list of the random power selected for one cycle send to the pulse picker.'''
+                     PowerProbePulsePicker, EmGainProbe, sample_parameters,Generation,
+                       FilterWheelPosCycle=2,TimeTransFilterWheel=1.6):
 
         if USE_DUMMY:
             return
-
-        MesNumber = range(self.Nb_Points)
+        Pos_Generation=self.Pos.loc[self.Pos['Generation']==Generation,:]
+        MesNumber = range(Pos_Generation.shape[0])
         IteratorMes = np.nditer(MesNumber, flags=['f_index'])
 
         Nb_Cycle = len(sample_parameters[0]['t_cyc'])
@@ -261,6 +224,7 @@ class timeTraceRunner:
         
         for k in IteratorMes:
             self.FM.SetClose()
+
             #############
             # Generation of the folder and measurement prep
             #############
@@ -274,12 +238,18 @@ class timeTraceRunner:
             self.camera.SetSaveDirectory(TempDirPath.replace('/', "\\"))
 
             #############
-            # Moving and preperation for next cycle
+            # Moving 
             #############
-            self.x_axis.MoveTo(self.Pos[IteratorMes.index, 0])
-            self.y_axis.MoveTo(self.Pos[IteratorMes.index, 1])
+            Pos_temp=Pos_Generation.iloc[IteratorMes.index,:]
+            self.x_axis_Rough.MoveTo(Pos_temp['x_rough'])
+            self.y_axis_Rough.MoveTo(Pos_temp['y_rough'])
+            self.x_axis.MoveTo(Pos_temp['x_piezo'])
+            self.y_axis.MoveTo(Pos_temp['y_piezo'])
+            self.z_axis.MoveTo(Pos_temp['z_piezo'])
 
+            #############
             # Intensity/Power Cycles
+            ############# 
             t_cyc = sample_parameters[MesNumber[IteratorMes.index]]['t_cyc']
             p_cyc = sample_parameters[MesNumber[IteratorMes.index]]['p_cyc']
             p_cyc_calib = sample_parameters[k]['p_cyc_calib']
@@ -288,32 +258,40 @@ class timeTraceRunner:
 
             T_tot = np.sum(t_cyc)
 
+            t_sync = np.zeros(len(t_cyc))# Create timing parameter
+
+            #############
             # Camera setting adjustement
+            #############  
             NbFrameCycle =np.ceil(
                 (T_tot+StabilityTime_Begin+StabilityTime_End+StabilityTime_Reset+3.6)/self.FrameTime)  # the 3.6s is due to the filter whell moving
             self.camera.SetNumberOfFrame(NbFrameCycle)
+            if EmGainProbe != 0:
+                # if not in low noise mode apply an EM gain
+                self.camera.SetEMGain(EmGainProbe)
 
+            #############
+            # ND and FilterWheel placement
+            ############# 
+            self.FM_ND.ChangeState(1)
+            self.FilterWheel.set_position(1)# Here we assume that the filter wheel at position 1 there is no nd
+            
+            #############
+            # Print important info
+            ############# 
+            print('Pos x={} mm, y={}mm, z={}um'.format(np.round(self.x_axis_Rough.GetPosition()+0.001* self.x_axis.GetPosition(),4),
+                                                   np.round(self.y_axis_Rough.GetPosition()+0.001* self.y_axis.GetPosition(),4),
+                                                   np.round(self.z_axis.GetPosition(),2)))
             print('Time cycle:{}'.format(t_cyc.tolist()))
             print('Power cycle:{}'.format(p_cyc.tolist()))
             print('Real Power cycle:{}'.format(p_cyc_calib.tolist()))
             print('Total time={}'.format(T_tot+StabilityTime_Begin +
                   StabilityTime_End+StabilityTime_Reset))
 
-            # Create timing parameter
-            t_sync = np.zeros(len(t_cyc))
-
-            if EmGainProbe != 0:
-                # if not in low noise mode apply an EM gain
-                self.camera.SetEMGain(EmGainProbe)
-
-            # ND and FilterWheel placement
-            self.FM_ND.ChangeState(1)
-            self.FilterWheel.set_position(1)# Here we assume that the filter wheel set to position 1 is the no ND place
-            self.FM.SetOpen()
-
             #############
             # Begin cycle
             #############
+            self.FM.SetOpen()
             self.camera.Acquire()  # Launch acquisition
             t0 = time.time()
 
@@ -343,7 +321,6 @@ class timeTraceRunner:
             #############################
             # Power/Time  step iteration
             #############################
-
             for j in IteratorCyc:
                 print('\r'+ " " * 40, end='', flush=True)
                 print('\r Cycle {}: P={},t={}'.format(IteratorCyc.index,
@@ -358,11 +335,13 @@ class timeTraceRunner:
                 time.sleep(t_cyc[IteratorCyc.index])
             IteratorCyc.reset()
             self.FM.SetClose()
+
             #############################
             # Stability time at the end
             #############################
             print('\r'+ " " * 40, end='', flush=True)
             print('\r Stability Time end') 
+            
             self.FilterWheel.set_position(1)
             self.FM.SetOpen()
             self.FM_ND.ChangeState(1)
@@ -477,7 +456,6 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
 
     # Load experimental data
     DataTot, CycleStore, Nb_pts = LoadDataFromFiles(FileDir, FolderCalibWavelength, Spectrograph_Center,GenerationNumber)
-    print(FileDir)
     assert len(population) == Nb_pts
 
     # Load experimental settings
@@ -515,13 +493,16 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
         ##########################
         # Use rolling mean to remove noise
         ##########################
-        print('{}/{} Rolling mean computation'.format(i+1, Nb_pts))
+        print('{}/{} Rolling mean computation and interpolation to the same timebase'.format(i +1, Nb_pts), end='', flush=True)
 
         FitDataResult_End = pd.DataFrame(index=dataFit_End.index, columns=dataFit_End.columns)
 
         for j in dataFit_End.index:
-            Floor=np.abs(dataFit_End.loc[j,:].rolling(5,min_periods=1).mean().min())
-            FitDataResult_End.loc[j, :] = dataFit_End.loc[j, :].rolling(5, min_periods=1).mean()-Floor
+            Floor=dataFit_End.loc[j,:].rolling(5,min_periods=1).mean().min()
+            if Floor<0:
+                FitDataResult_End.loc[j, :] = dataFit_End.loc[j, :].rolling(5, min_periods=1).mean()+np.abs(Floor)
+            else:
+                FitDataResult_End.loc[j, :] = dataFit_End.loc[j, :].rolling(5, min_periods=1).mean()
         FitDataResult_End['Mes'] = i
 
         FitAll_End = pd.concat([FitAll_End, FitDataResult_End], axis=0)
@@ -529,8 +510,11 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
         FitDataResult_Begin = pd.DataFrame(index=dataFit_Begin.index, columns=dataFit_Begin.columns)
 
         for j in dataFit_Begin.index:
-            Floor=np.abs(dataFit_Begin.loc[j,:].rolling(5,min_periods=1).mean().min())
-            FitDataResult_Begin.loc[j, :] = dataFit_Begin.loc[j, :].rolling(5, min_periods=1).mean()-Floor
+            Floor=dataFit_Begin.loc[j,:].rolling(5,min_periods=1).mean().min()
+            if Floor<0:
+                FitDataResult_Begin.loc[j, :] = dataFit_Begin.loc[j, :].rolling(5, min_periods=1).mean()+np.abs(Floor)
+            else:
+                FitDataResult_Begin.loc[j, :] = dataFit_Begin.loc[j, :].rolling(5, min_periods=1).mean()
         FitDataResult_Begin['Mes'] = i
 
         FitAll_Begin = pd.concat([FitAll_Begin, FitDataResult_Begin], axis=0)
@@ -538,8 +522,6 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
         ##########################
         # Interpolate to the same timescale
         ##########################
-
-        print('{}/{} Interpolation to the same timebase'.format(i +1, Nb_pts), end='', flush=True)
 
         if (dataFit_End.index[-1]-dataFit_End.index[0]) > (dataFit_Begin.index[-1]-dataFit_Begin.index[0]):
 
@@ -781,115 +763,104 @@ if __name__ == '__main__':
 
     # Value to reach on the powermeter (0,11,25,240,475)uW
     P_calib = (500, 500, 900, 2200, 2900)
+
     #############################
     # Optimization parameters
     #############################
-    generations_budget = 20
+    generations_budget = 10
     StartFromSeed=False
+
     #############################
-    # TimeTrace parameters
+    # Position parameters
     #############################
-    Nb_Points = 1 # Number of position for the piezo
+    Nb_Points_Generation = 100 # Number of cycle per generations
+    Nb_points_Piezo=9 # Number of position for the piezo
+    BeamRadius = 30  # Minimum distance betweensuccesive point in um
+    SpacingRoughFine=0.150
+
+    # Rough stage parameter
+    start_x_rough=9.1
+    start_y_rough=8.4
+
+    #############################
+    # Cycles paramters
+    #############################
     Nb_Cycle = 10  # Number of cycle during experiment
-
-    BeamRadius = 25  # Minimum distance betweensuccesive point in um
-
     StabilityTime_Begin = 60  # Time for which it will probe at the beginning of the cycle
     StabilityTime_Reset = 60# The beam will then be block for this amount of time so that the sample 'reset'
     StabilityTime_End = 60  # Time for which it will probe at the end of the cycle
     # The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
+
+    Time_Min = 40
+    Time_Max = 60
+    
+    #############################
+    # Detection parameters
+    #############################
     PowerProbePulsePicker = 500
     EmGainProbe = 100
-    
 
+    #############################
+    # FW parameters
+    #############################
+    FilterWheelPosCycle=6
+    TimeTransFilterWheel=2.76
+    
+    #############################
+    # Misc
+    #############################
     Spectrograph_slit = 50  # This is just for record not actually setting it up
     Spectrograph_Center = 700  # This is just for record not actually setting it up
 
     FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
-    Time_Min = 40
-    Time_Max = 60
-
-    FilterWheelPosCycle=6
-    TimeTransFilterWheel=2.76
-
-    GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points': Nb_Points, 'Beam avoidance radius': BeamRadius,
-                   'Stability time begin ': StabilityTime_Begin, 'Stability time reset': StabilityTime_Reset, 'Stability time end ': StabilityTime_End,
-                   'Power probe ': PowerProbePulsePicker, 'Em Gain probe': EmGainProbe,
-                     'Spectrograph slit width': Spectrograph_slit, 'Spectrograph center Wavelength': Spectrograph_Center,
+    GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points': np.ceil(Nb_Points_Generation/Nb_points_Piezo)*generations_budget*Nb_points_Piezo, 
+                    'Nb_points_Generation':Nb_Points_Generation,'Nb_points_piezo':Nb_points_Piezo,
+                    'Beam avoidance radius': BeamRadius,'SpacingRoughFine':SpacingRoughFine,
+                    'Stability time begin ': StabilityTime_Begin, 'Stability time reset': StabilityTime_Reset, 'Stability time end ': StabilityTime_End,
+                    'Power probe ': PowerProbePulsePicker, 'Em Gain probe': EmGainProbe,
+                    'Spectrograph slit width': Spectrograph_slit, 'Spectrograph center Wavelength': Spectrograph_Center,
                     'FilterWheel Pos':FilterWheelPosCycle,'Time Transi':TimeTransFilterWheel,
-                   'Note': 'The SHG unit from Coherent was used and ND1 for probe,beam 1.7um',
+                    'Note': 'The SHG unit from Coherent was used and ND1 for probe,beam 1.7um',
                     'Note Imp': 'Added an ND1 before the spatial filter to reduce power but didnt change the pulse picker power'}
 
     # FileDir = '/export/scratch2/constellation-data/EnhancePerov/output-dummy/'
     FileDir = 'output-dummy/'
 
-    # Piezo parameter
-    start_x = 0.5
-    end_x = 79.5
-    start_y = 0.5
-    end_y = 79.5
 
-    # Rough stage parameter
-    start_x_rough=9.1
-    start_y_rough=8.4
-    ####
+    #############################
     # Initialisation of the Timetrace object
-    ####
+    #############################
+
     if StartFromSeed==True:
         print('Select seed Directory')
         SeedDirectory=FileControl.AskDirectory()
-    # This object allow to run the timetrace, load the data, ...
+    
     runner = timeTraceRunner(**GeneralPara)
-    runner.initialize(start_x, end_x, start_y, end_y, BeamRadius, FileDir)
+    runner.initialize(start_x_rough, start_y_rough, BeamRadius,PlaneCoefficient, SpacingRoughFine, FileDir)
 
-
-    if UseBothRoughAndFineTransla==True:
-        runner.x_axis_Rough.MoveTo(start_x_rough)
-        runner.y_axis_Rough.MoveTo(start_y_rough)
-        x_rough = np.linspace(runner.x_axis_Rough.GetPosition(), runner.x_axis_Rough.GetPosition()+1, int(np.floor(np.sqrt(generations_budget))))
-        y_rough = np.linspace(runner.y_axis_Rough.GetPosition(), runner.y_axis_Rough.GetPosition()+1, int(np.ceil(np.sqrt(generations_budget))))  
-        X, Y = np.meshgrid(x_rough, y_rough)
-        PosRough = np.stack([X.ravel(), Y.ravel()], axis=-1)
-        index=random.sample(range(0, PosRough.shape[0]), PosRough.shape[0])
-        PosRough=PosRough[index,:]
-
-        runner.x_axis_Rough.MoveTo(PosRough[0,0])
-        runner.y_axis_Rough.MoveTo(PosRough[0,1])
-
-        runner.z_axis.MoveTo(ML_Tools.Find_zFromEq(PosRough[0,0],PosRough[0,1],PlaneCoefficient))
-        pd.DataFrame(PosRough).to_csv(runner.DirectoryPath+'/RoughPosSave.csv')
-
-        print('Pos: x={}mm,y={}mm ,z={}um'.format(np.round(runner.x_axis_Rough.GetPosition(),3),np.round(runner.y_axis_Rough.GetPosition(),3),np.round(runner.z_axis.GetPosition(),3)))
-        
-    time.sleep(10)
-    # generate initial population
-    FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
+    #############################
+    # Generate initial population and calculate fitness values
+    #############################
+    
     if StartFromSeed==False:
         population = generateRandomParameters(runner.Nb_Points, Nb_Cycle,P_calib)
-        # run the experiment
         runner.runTimeTrace(StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
                         PowerProbePulsePicker, EmGainProbe, population,FilterWheelPosCycle)
         evaluateFitnessValues(population, runner.DirectoryPath,
-                          FolderCalibWavelength, Spectrograph_Center, Time_Min, Time_Max, 'M2',0)
+                          FolderCalibWavelength, runner.spectro.GetWavelength(), Time_Min, Time_Max, 'M2',0)
     else:
         population,GenNumber=LoadPreviousPop(SeedDirectory,P_calib)
         SeedFolderGen=glob.glob(SeedDirectory+'/Generation*')
-        evaluateFitnessValues(population, SeedFolderGen[-1],FolderCalibWavelength, Spectrograph_Center, Time_Min, Time_Max, 'M2',0)
-    # calculate fitness values
-    
+        evaluateFitnessValues(population, SeedFolderGen[-1],FolderCalibWavelength, runner.spectro.GetWavelength(), Time_Min, Time_Max, 'M2',0)
 
-
+    #############################
+    # Run succesive generations
+    #############################
     number_of_generations = 1
     while number_of_generations < generations_budget:  # generational loop
         print("################")
         print("# GENERATION", number_of_generations, "#")
         print("################")
-
-        if UseBothRoughAndFineTransla==True:
-            runner.x_axis_Rough.MoveTo(PosRough[number_of_generations,0])
-            runner.y_axis_Rough.MoveTo(PosRough[number_of_generations,1])
-            runner.z_axis.MoveTo(ML_Tools.Find_zFromEq(PosRough[number_of_generations,0],PosRough[number_of_generations,1],PlaneCoefficient))
-            print('Pos: x={}mm,y={}mm ,z={}um'.format(np.round(runner.x_axis_Rough.GetPosition(),3),np.round(runner.y_axis_Rough.GetPosition(),3),np.round(runner.z_axis.GetPosition(),3)))
 
         offspring = makeOffspring(population)
 
@@ -897,15 +868,14 @@ if __name__ == '__main__':
         runner.runTimeTrace(StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
                             PowerProbePulsePicker, EmGainProbe, offspring,FilterWheelPosCycle)
         # calculate fitness values
-        FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
         evaluateFitnessValues(offspring, runner.DirectoryPath,
-                              FolderCalibWavelength, Spectrograph_Center, Time_Min, Time_Max, 'M2',number_of_generations)
+                              FolderCalibWavelength, runner.spectro.GetWavelength(), Time_Min, Time_Max, 'M2',number_of_generations)
 
         # update population
         population = tournamentSelection(population + offspring)
 
         print("Best solution so far:")
         print(get_best_solution(population).fitness)
-        print(get_best_solution(population)['t_cyc'])
+        #print(get_best_solution(population)['t_cyc'])
 
         number_of_generations += 1
