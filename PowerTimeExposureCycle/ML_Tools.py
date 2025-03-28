@@ -257,6 +257,7 @@ if __name__ == '__main__':
     x=[x_begin,x_begin+1,x_begin,x_begin+1,x_begin-1,x_begin-1]
     y=[y_begin,y_begin,y_begin+1,y_begin+1,y_begin,y_begin-1]
     Pos=np.transpose(np.array([x,y]))
+    Laser.SetStatusShutterTunable(0)
 
     Coeff=FindPlaneEquation(DirectoryPath,FolderCalibWavelength,spectro.GetWavelength(),camera,z_axis,Pos,x_axis_Rough,y_axis_Rough)
     print(Coeff)
