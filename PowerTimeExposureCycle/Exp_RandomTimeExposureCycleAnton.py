@@ -478,7 +478,7 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
         # will occur at t[0]=21s. All other Timestamp occurs at each step of the cycles.
         # The last timestamp correspond to the end of the cycles but there is 1.6s made for the filterwheel to move to its position.
 
-        dataTemp = DataTot.loc[(DataTot['Mes']==i),:]
+        dataTemp = DataTot.loc[(DataTot['Mes']==i),:] # DataTot is in nm
 
         ts_end =np.argmin(np.abs(dataTemp['Time']-t_globalSync[i]-3.2))
         ts_begin =np.argmin(np.abs(dataTemp['Time']-StabilityTime_begin))
@@ -501,7 +501,7 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
         print('\r {}/{} Rolling mean computation and interpolation to the same timebase'.format(i +1, Nb_pts), end='', flush=True)
 
         FitDataResult_End = pd.DataFrame(index=dataFit_End.index, columns=(cst.h*cst.c)/(dataFit_End.columns*1E-9*cst.value('electron volt')))
-        NormaFactor=(cst.h*cst.c)/(np.power(dataFit_End.columns.to_numpy(),2)*cst.value('electron volt'))
+        NormaFactor=(cst.h*cst.c)/(np.power(FitDataResult_End.columns.to_numpy(),2)*cst.value('electron volt'))
 
         for j in dataFit_End.index:
             Floor=dataFit_End.loc[j,:].rolling(5,min_periods=1).mean().min()
@@ -514,7 +514,7 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
         FitAll_End = pd.concat([FitAll_End, FitDataResult_End], axis=0)
 
         FitDataResult_Begin = pd.DataFrame(index=dataFit_Begin.index, columns=(cst.h*cst.c)/(dataFit_Begin.columns*1E-9*cst.value('electron volt')))
-        NormaFactor=(cst.h*cst.c)/(np.power(dataFit_Begin.columns.to_numpy(),2)*cst.value('electron volt'))
+        NormaFactor=(cst.h*cst.c)/(np.power(FitDataResult_Begin.columns.to_numpy(),2)*cst.value('electron volt'))
 
         for j in dataFit_Begin.index:
             Floor=dataFit_Begin.loc[j,:].rolling(5,min_periods=1).mean().min()
@@ -766,17 +766,16 @@ if __name__ == '__main__':
 
     if not USE_DUMMY:
         os.system('cls')
-    PlaneCoefficient=np.array([-7.05425161,  -3.66879706, 125.76338292])
+    PlaneCoefficient=np.array([-4.80216713,  -3.67368228, 120.87313535])
 
     # Value to reach on the powermeter (0,11,25,240,475)uW
-    P_calib = (500, 500, 700, 1900, 2400)
+    P_calib = (500, 500, 800, 2000, 2600)
 
     #############################
     # Optimization parameters
     #############################
     generations_budget = 10
-    StartFromSeed=False
-
+    StartFromSeed=True
     #############################
     # Position parameters
     #############################
@@ -786,8 +785,8 @@ if __name__ == '__main__':
     SpacingRoughFine=0.150
 
     # Rough stage parameter
-    start_x_rough=5.55
-    start_y_rough=6.95
+    start_x_rough=6.99
+    start_y_rough=8
 
     #############################
     # Cycles paramters
@@ -805,7 +804,7 @@ if __name__ == '__main__':
     # Detection parameters
     #############################
     PowerProbePulsePicker = 500
-    EmGainProbe = 100
+    EmGainProbe = 0 # set to zero if low moise mode
 
     #############################
     # FW parameters
