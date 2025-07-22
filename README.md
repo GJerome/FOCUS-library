@@ -9,7 +9,8 @@ Our approach starts with halide perovskites, a class of versatile semiconductor 
 This repository contains all the library and python wrappers allowing us to control the Syracuse optical setup at the Nanoscale Solar Cells laboratory at Amolf. It is currently a work in progress, as many instruments are still being integrated into different experiment. The main goal of this repository is remote collaboration and project tracking.
 
 The following instruments are incorporated into our workflow:
-HDPTA (via RemoteEx) and subsequent n-exponential fitting
+
+- HDPTA (via RemoteEx) and subsequent n-exponential fitting
 - Lock-in amplifier (UHFLI 600 MHz)
 - Lightfield integration
 - Kymera 193i spectrometer 
