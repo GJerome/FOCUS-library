@@ -17,7 +17,7 @@ def WaitStatus(cc, val, timeout):
                         #print(" Status = " + status)
                         return 1
         print("WaitStatus timeout, Status = " + status)
-        return -1;
+        return -1
 
 def GoToPositions(x_axis,y_axis,z_axis,Pos):
     """ The Pos is a numpy array that should be strucured in the following way
@@ -116,7 +116,7 @@ class ConexController:
         """
 
         # Connexion to the serial port
-        self.SerialPort = serial.Serial(ComPort,baudrate=921600,timeout=3)
+        self.SerialPort = serial.Serial(ComPort,baudrate=921600,xonxoff=True,timeout=3)
         self.Status=self.GetStatus()
         self.Name=Name
         a=0
@@ -212,5 +212,5 @@ class ConexController:
         a=WaitStatus(self.SerialPort, '1TS000032', 10000)
 
 if __name__ == "__main__":
-    x_axis_Rough = ConexController('COM12')
+    x_axis_Rough = ConexController('COM13')
     x_axis_Rough.MoveTo(6)
