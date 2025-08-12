@@ -82,7 +82,7 @@ class LightFieldControl:
         else:
 
             self.Status = False
-
+        self.LoadExperiment(ExperimentName)
         self.parameterDict = {'Frame time': self.GetFrameTime(
         ), 'Integration Time': self.GetExposureTime(),'EM Gain':self.GetEMGain()}
 
@@ -189,13 +189,13 @@ class LightFieldControl:
 
 
 if __name__ == "__main__":
-    emccd = LightFieldControl(ExperimentName='ML')
+    emccd = LightFieldControl(ExperimentName='ML2')
     print(emccd.GetFrameTime())
     #emccd.print_setting(CameraSettings.AdcEMGain)
     #emccd.SetEMGain(1)
     #emccd.print_setting(CameraSettings.AdcEMGain)
     #emccd.print_setting(ExperimentSettings.FileNameGenerationDirectory)
-    #time.sleep(10)
+    time.sleep(10)
     '''
     if emccd.Status == False:
         print("The experiment couldn't be setup please close all instance of Lightfield, check connection and retry.")
