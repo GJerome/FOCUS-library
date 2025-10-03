@@ -255,7 +255,9 @@ class timeTraceRunner:
             #############
             # Generation of the folder and measurement prep
             #############
+            print('#############')
             print('Measurement number:{}'.format(MesNumber[IteratorMes.index]))
+            print('#############')
 
             TempDirPath = self.DirectoryPath+'/Mes'+str(MesNumber[IteratorMes.index])+'x='+str(np.round(self.x_axis_Rough.GetPosition()+0.001* self.x_axis.GetPosition(),3))+'y='+str(np.round(self.y_axis_Rough.GetPosition()+0.001* self.y_axis.GetPosition(),3))
 
@@ -802,7 +804,7 @@ if __name__ == '__main__':
 
     if not USE_DUMMY:
         os.system('cls')
-    PlaneCoefficient=np.array([  6.74074074, -6.32539683, 32.74074074])
+    PlaneCoefficient=np.array([-12.08998039,  -1.80202147,  96.62300666])
 
     # Value to reach on the powermeter (0,11,25,240,475)uW
     P_calib = (500, 500, 800, 2200, 3100)
@@ -822,7 +824,7 @@ if __name__ == '__main__':
     SpacingRoughFine=0.25
 
     # Rough stage parameter
-    start_x_rough=6
+    start_x_rough=2
     start_y_rough=6
 
     #############################
@@ -840,8 +842,8 @@ if __name__ == '__main__':
     #############################
     # Detection parameters
     #############################
-    PowerProbePulsePicker = 800
-    EmGainProbe = 60 # set to zero if low moise mode
+    PowerProbePulsePicker = 900
+    EmGainProbe = 80 # set to zero if low moise mode
 
     #############################
     # FW parameters
@@ -853,7 +855,7 @@ if __name__ == '__main__':
     # Misc
     #############################
     Spectrograph_slit = 200  # This is just for record not actually setting it up
-    Spectrograph_Center = 700  # This is just for record not actually setting it up
+    Spectrograph_Center = 660  # This is just for record not actually setting it up
 
     FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
     GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points': np.ceil(Nb_Points_Generation/Nb_points_Piezo)*generations_budget*Nb_points_Piezo, 
@@ -864,7 +866,8 @@ if __name__ == '__main__':
                     'Spectrograph slit width': Spectrograph_slit, 'Spectrograph center Wavelength': Spectrograph_Center,
                     'FilterWheel Pos':FilterWheelPosCycle,'Time Transi':TimeTransFilterWheel,
                     'Coefficient Plane':PlaneCoefficient,
-                    'Note': 'The SHG unit from Coherent was used and ND3 for probe,beam 1.7um'}
+                    'Note': 'The SHG unit from Coherent was used and ND3 for probe,beam 1.7um',
+                    'NotePower':'Power before BS 22uW'}
 
     # FileDir = '/export/scratch2/constellation-data/EnhancePerov/output-dummy/'
     FileDir = 'output-dummy/'
