@@ -11,7 +11,7 @@ import shutil
 import time as time
 from scipy.integrate import simpson
 import scipy.constants as cst
-USE_DUMMY = False
+USE_DUMMY = False 
 os.system('cls')
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -651,25 +651,41 @@ def tournamentSelection(selection_pool, tournament_size=4):
             selected.append(best)
     return selected
 
-
-def twoPointCrossOver(parent_a, parent_b):
+def uniformCrossover(parent_a, parent_b):
     l = len(parent_a['t_cyc'])
     offspring_a = pd.DataFrame()
     offspring_b = pd.DataFrame()
-    m = (np.arange(l) < np.random.randint(l+1)
-         ) ^ (np.arange(l) < np.random.randint(l+1))
+    m = np.random.randint(2, size=l) == 1
     properties = ['t_cyc', 'p_cyc', 'p_cyc_calib']
     for prop in properties:
         offspring_a[prop] = np.where(m, parent_a[prop], parent_b[prop])
         offspring_b[prop] = np.where(~m, parent_a[prop], parent_b[prop])
     return [offspring_a, offspring_b]
 
+def twoPointCrossover(parent_a, parent_b):
+    l = len(parent_a['t_cyc'])
+    offspring_a = pd.DataFrame()
+    offspring_b = pd.DataFrame()
+    m = (np.arange(l) < np.random.randint(l+1)) ^ (np.arange(l) < np.random.randint(l+1))
+    properties = ['t_cyc', 'p_cyc', 'p_cyc_calib']
+    for prop in properties:
+        offspring_a[prop] = np.where(m, parent_a[prop], parent_b[prop])
+        offspring_b[prop] = np.where(~m, parent_a[prop], parent_b[prop])
+    return [offspring_a, offspring_b]
 
-def makeOffspring(population):
+def crossover(crossover_type, parent_a, parent_b):
+    if crossover_type == 'uniform':
+        return uniformCrossover(parent_a, parent_b)
+    elif crossover_type == 'twopoint':
+        return twoPointCrossover(parent_a, parent_b)
+    else:
+        raise Exception('Invalid crossover type')
+
+def makeOffspring(population, crossover_type):
     offspring = []
     order = np.random.permutation(len(population))
     for i in range(len(order)//2):
-        offsprings = twoPointCrossOver(
+        offsprings = crossover(crossover_type,
             population[order[2*i]], population[order[2*i+1]])
         offspring = offspring + offsprings
     return offspring
@@ -813,6 +829,7 @@ if __name__ == '__main__':
     # Optimization parameters
     #############################
     generations_budget = 6
+    crossover_type = 'twopoint'
     StartFromSeed=False
 
     #############################
@@ -858,7 +875,8 @@ if __name__ == '__main__':
     Spectrograph_Center = 660  # This is just for record not actually setting it up
 
     FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
-    GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points': np.ceil(Nb_Points_Generation/Nb_points_Piezo)*generations_budget*Nb_points_Piezo, 
+    GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points': np.ceil(Nb_Points_Generation/Nb_points_Piezo)*generations_budget*Nb_points_Piezo,
+                    'crossover_type' : crossover_type, 
                     'Nb_points_Generation':Nb_Points_Generation,'Nb_points_piezo':Nb_points_Piezo,
                     'Beam avoidance radius': BeamRadius,'SpacingRoughFine':SpacingRoughFine,
                     'Stability time begin ': StabilityTime_Begin, 'Stability time reset': StabilityTime_Reset, 'Stability time end ': StabilityTime_End,
@@ -914,7 +932,7 @@ if __name__ == '__main__':
         print("# GENERATION", number_of_generations, "#")
         print("################")
 
-        offspring = makeOffspring(population)
+        offspring = makeOffspring(population, offspring_type)
 
         # run the experiment
         runner.runTimeTrace(StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
