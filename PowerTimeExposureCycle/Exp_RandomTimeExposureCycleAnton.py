@@ -10,7 +10,8 @@ import os
 import shutil
 import time as time
 from scipy.integrate import simpson
-USE_DUMMY = False
+import scipy.constants as cst
+USE_DUMMY = False 
 os.system('cls')
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -80,9 +81,9 @@ class timeTraceRunner:
         self.Nb_points_Generation=self.GeneralPara['Nb_points_Generation']
         
 
-    def initialize(self, start_x_rough, start_y_rough, BeamRadius,Coeff,SpacingBetweenRough_p,FileDir):
-        self.initializePos(generations_budget,Nb_Points_Generation,Nb_points_Piezo,
-                                     Coeff,BeamRadius=BeamRadius,
+    def initialize(self, start_x_rough, start_y_rough, BeamRadius,Coeff,SpacingBetweenRough_p,FileDir,PointsCalib):
+        self.initializePos(generations_budget,self.Nb_points_Generation,self.GeneralPara['Nb_points_piezo'],
+                                     Coeff,PointsCalib,BeamRadius=BeamRadius,
                                      startX_rough=start_x_rough,startY_rough=start_y_rough,
                                      SpacingBetweenRough=SpacingBetweenRough_p)
         self.initializeInstruments()
@@ -94,15 +95,16 @@ class timeTraceRunner:
     #############################
 
     def initializePos(self,generations_budget,Nb_Points_Generation,Nb_points_Piezo,
-                                     Coeff,BeamRadius,
+                                     Coeff,PointsCalib,BeamRadius,
                                      startX_rough,startY_rough,SpacingBetweenRough):
 
         self.Pos=ML_Tools.Generate_RandomPositionRoughFine(generations_budget,Nb_Points_Generation,
                                                            Nb_points_Piezo,
-                                     Coeff,BeamRadius,
+                                     Coeff,PointsCalib,BeamRadius,
                                      startX_rough,startY_rough,SpacingBetweenRough)
-        self.GeneralPara['Nb_points'] = self.Pos.shape[0]
-        self.Nb_Points = self.Pos.shape[0]
+        
+        self.GeneralPara['Nb_points'] = self.Pos.loc[self.Pos['Generation']==0,:].shape[0]
+        self.Nb_Points = self.Pos.loc[self.Pos['Generation']==0,:].shape[0]
 
         try:
             print('Number of Points:{}-{}\n'.format(self.Nb_Points, self.Pos.shape[0]))
@@ -180,7 +182,7 @@ class timeTraceRunner:
                 print('Initialised piezo translation stage')
         else:
             self.x_axis_Rough = RoughTransla.ConexController('COM12')
-            self.y_axis_Rough = RoughTransla.ConexController('COM13')
+            self.y_axis_Rough = RoughTransla.ConexController('COM14')
             self.InstrumentsPara['Rough Stage']=self.x_axis_Rough.parameterDict | self.y_axis_Rough.parameterDict 
 
             piezo = Transla.PiezoControl('COM15')
@@ -206,6 +208,7 @@ class timeTraceRunner:
     #############################
     # TimeTrace loop
     #############################
+
     def runTimeTrace(self, StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
                      PowerProbePulsePicker, EmGainProbe, sample_parameters,Generation,
                        FilterWheelPosCycle=2,TimeTransFilterWheel=1.6):
@@ -225,17 +228,6 @@ class timeTraceRunner:
         for k in IteratorMes:
             self.FM.SetClose()
 
-            #############
-            # Generation of the folder and measurement prep
-            #############
-            print('Measurement number:{}'.format(MesNumber[IteratorMes.index]))
-
-            TempDirPath = self.DirectoryPath+'/Mes'+str(MesNumber[IteratorMes.index])+'x='+str(np.round(
-                self.Pos[IteratorMes.index, 0], 2))+'y='+str(np.round(self.Pos[IteratorMes.index, 1], 2))
-
-            if (not os.path.isdir(TempDirPath)):
-                os.mkdir(TempDirPath)
-            self.camera.SetSaveDirectory(TempDirPath.replace('/', "\\"))
 
             #############
             # Moving 
@@ -259,6 +251,19 @@ class timeTraceRunner:
             T_tot = np.sum(t_cyc)
 
             t_sync = np.zeros(len(t_cyc))# Create timing parameter
+
+            #############
+            # Generation of the folder and measurement prep
+            #############
+            print('#############')
+            print('Measurement number:{}'.format(MesNumber[IteratorMes.index]))
+            print('#############')
+
+            TempDirPath = self.DirectoryPath+'/Mes'+str(MesNumber[IteratorMes.index])+'x='+str(np.round(self.x_axis_Rough.GetPosition()+0.001* self.x_axis.GetPosition(),3))+'y='+str(np.round(self.y_axis_Rough.GetPosition()+0.001* self.y_axis.GetPosition(),3))
+
+            if (not os.path.isdir(TempDirPath)):
+                os.mkdir(TempDirPath)
+            self.camera.SetSaveDirectory(TempDirPath.replace('/', "\\"))
 
             #############
             # Camera setting adjustement
@@ -340,12 +345,13 @@ class timeTraceRunner:
             # Stability time at the end
             #############################
             print('\r'+ " " * 40, end='', flush=True)
-            print('\r Stability Time end') 
-            
+            print('\r Stability Time end')
+
+            self.FM_ND.ChangeState(1)
+            self.pp.SetPower(PowerProbePulsePicker)            
             self.FilterWheel.set_position(1)
             self.FM.SetOpen()
-            self.FM_ND.ChangeState(1)
-            self.pp.SetPower(PowerProbePulsePicker)
+
             if EmGainProbe != 0:
                 self.camera.SetEMGain(EmGainProbe)
             self.camera.WaitForAcq()
@@ -389,7 +395,7 @@ def generateRandomParameters(Nb_Points, Nb_Cycle,P_calib):
     # Value to reach on the powermeter (0,11,25,240,475)uW
     # Power from the pp to reach values of P #20MHz
     #P_calib = (500, 500, 800, 2000, 2500)
-    p1 = [0.2, 0.2, 0.2, 0.2, 0.2]
+    p1 = [0.3, 0.175, 0.175, 0.175, 0.175]
     ProbaP = p1
 
     ###################
@@ -475,48 +481,65 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
         # will occur at t[0]=21s. All other Timestamp occurs at each step of the cycles.
         # The last timestamp correspond to the end of the cycles but there is 1.6s made for the filterwheel to move to its position.
 
-        dataTemp = DataTot.loc[(DataTot['Mes']==i),:]
+        dataTemp = DataTot.loc[(DataTot['Mes']==i),:] # DataTot is in nm
 
         ts_end =np.argmin(np.abs(dataTemp['Time']-t_globalSync[i]-3.2))
         ts_begin =np.argmin(np.abs(dataTemp['Time']-StabilityTime_begin))
 
+        # Raw spectra in nm
         dataFit_End = dataTemp.loc[dataTemp['Time']>dataTemp.loc[ts_end,'Time'],:].iloc[:,:-1]
         dataFit_End = dataFit_End.set_index(dataFit_End['Time']-dataFit_End['Time'].min()).iloc[:,:-1]
-
+        
         dataFit_Begin = dataTemp.loc[dataTemp['Time']<dataTemp.loc[ts_begin,'Time'],:].iloc[:,:-1]
         dataFit_Begin = dataFit_Begin.set_index(dataFit_Begin['Time']-dataFit_Begin['Time'].min()).iloc[:,:-1]
 
         if i==0:
-            FitAll_End = pd.DataFrame(columns=dataFit_End.columns)
-            FitAll_Begin = pd.DataFrame(columns=dataFit_Begin.columns)
+            idx_Energy=(cst.h*cst.c)/(dataFit_End.columns*1E-9*cst.value('electron volt'))
+            
+            # Raw spectra in eV
+            FitAll_End = pd.DataFrame(columns=idx_Energy)
+            FitAll_Begin = pd.DataFrame(columns=idx_Energy)
 
         ##########################
         # Use rolling mean to remove noise
         ##########################
-        print('{}/{} Rolling mean computation and interpolation to the same timebase'.format(i +1, Nb_pts), end='', flush=True)
+        print('\r {}/{} Rolling mean computation and interpolation to the same timebase'.format(i +1, Nb_pts), end='', flush=True)
 
-        FitDataResult_End = pd.DataFrame(index=dataFit_End.index, columns=dataFit_End.columns)
+        FitDataResult_End = pd.DataFrame(index=dataFit_End.index, columns=idx_Energy)
+        NormaFactor=(cst.h*cst.c)/(np.power(FitDataResult_End.columns.to_numpy(),2)*cst.value('electron volt'))
 
         for j in dataFit_End.index:
+
+            dataFit_End[dataFit_End<0]=0
+            FitDataResult_End.loc[j, :] = (dataFit_End.loc[j, :].rolling(5, min_periods=1).mean().to_numpy().astype(np.float64))*NormaFactor
+            '''
             Floor=dataFit_End.loc[j,:].rolling(5,min_periods=1).mean().min()
             if Floor<0:
-                FitDataResult_End.loc[j, :] = dataFit_End.loc[j, :].rolling(5, min_periods=1).mean()+np.abs(Floor)
+                FitDataResult_End.loc[j, :] = (dataFit_End.loc[j, :].rolling(5, min_periods=1).mean().to_numpy().astype(np.float64)+np.abs(Floor))*NormaFactor
             else:
-                FitDataResult_End.loc[j, :] = dataFit_End.loc[j, :].rolling(5, min_periods=1).mean()
+                FitDataResult_End.loc[j, :] = (dataFit_End.loc[j, :].rolling(5, min_periods=1).mean().to_numpy().astype(np.float64))*NormaFactor
+            '''
+        FitDataResult_End=FitDataResult_End.loc[:,(FitDataResult_End.columns<3) &(FitDataResult_End.columns>1.45) ]
+        
         FitDataResult_End['Mes'] = i
-
         FitAll_End = pd.concat([FitAll_End, FitDataResult_End], axis=0)
 
-        FitDataResult_Begin = pd.DataFrame(index=dataFit_Begin.index, columns=dataFit_Begin.columns)
+        FitDataResult_Begin = pd.DataFrame(index=dataFit_Begin.index, columns=(cst.h*cst.c)/(dataFit_Begin.columns*1E-9*cst.value('electron volt')))
+        NormaFactor=(cst.h*cst.c)/(np.power(FitDataResult_Begin.columns.to_numpy(),2)*cst.value('electron volt'))
 
         for j in dataFit_Begin.index:
-            Floor=dataFit_Begin.loc[j,:].rolling(5,min_periods=1).mean().min()
+            
+            dataFit_Begin[dataFit_Begin<0]=0
+            FitDataResult_Begin.loc[j, :] = (dataFit_Begin.loc[j, :].rolling(5, min_periods=1).mean().to_numpy().astype(np.float64))*NormaFactor
+            '''
             if Floor<0:
-                FitDataResult_Begin.loc[j, :] = dataFit_Begin.loc[j, :].rolling(5, min_periods=1).mean()+np.abs(Floor)
+                FitDataResult_Begin.loc[j, :] = (dataFit_Begin.loc[j, :].rolling(5, min_periods=1).mean().to_numpy().astype(np.float64)+np.abs(Floor))*NormaFactor
             else:
-                FitDataResult_Begin.loc[j, :] = dataFit_Begin.loc[j, :].rolling(5, min_periods=1).mean()
+        
+                FitDataResult_Begin.loc[j, :] = (dataFit_Begin.loc[j, :].rolling(5, min_periods=1).mean().to_numpy().astype(np.float64))*NormaFactor
+            '''
+        FitDataResult_Begin=FitDataResult_Begin.loc[:,(FitDataResult_Begin.columns<3) &(FitDataResult_Begin.columns>1.45) ]
         FitDataResult_Begin['Mes'] = i
-
         FitAll_Begin = pd.concat([FitAll_Begin, FitDataResult_Begin], axis=0)
 
         ##########################
@@ -531,13 +554,20 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
             dataTemp_Interp = pd.DataFrame(FitDataResult_End.iloc[:, :-2], dtype='float64')
             dataTemp_Interp = dataTemp_Interp.loc[dataTemp_Interp.index <=time_int[-1], :]
 
-            dataFit_interp2 = pd.DataFrame(np.interp(time_int, dataTemp_Interp.index,
-                                                     simpson(y=dataTemp_Interp.to_numpy(), x=dataTemp_Interp.columns.to_numpy(), axis=1)),
+            try:
+                dataFit_interp2 = pd.DataFrame(np.interp(time_int, dataTemp_Interp.index,
+                                                     simpson(y=dataTemp_Interp.to_numpy(),
+                                                              x=dataTemp_Interp.columns.to_numpy(),
+                                                                axis=1)),
                                            index=time_int)
-            # S1
-            dataTemp = simpson(y=FitDataResult_Begin.iloc[:, :-1].to_numpy(),
+                # S1
+                dataTemp = simpson(y=FitDataResult_Begin.iloc[:, :-1].to_numpy(),
                                x=FitDataResult_Begin.iloc[:,:-1].columns.to_numpy(),
                                axis=1)
+            except:
+                print(dataTemp_Interp.shape)
+                print(dataTemp.shape)
+                exit()
             dataFit_interp1 = pd.DataFrame(dataTemp, index=time_int)
         else:
 
@@ -546,14 +576,20 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
             # S1
             dataTemp_Interp = pd.DataFrame(FitDataResult_Begin.iloc[:, :-2], dtype='float64')
             dataTemp_Interp = dataTemp_Interp.loc[dataTemp_Interp.index <=time_int[-1], :]
-            
-            dataFit_interp1 = pd.DataFrame(np.interp(time_int, dataTemp_Interp.index,
-                                                     simpson(y=dataTemp_Interp.to_numpy(), x=dataTemp_Interp.columns.to_numpy(), axis=1)),
+            try:
+                dataFit_interp1 = pd.DataFrame(np.interp(time_int, dataTemp_Interp.index,
+                                                     simpson(y=dataTemp_Interp.to_numpy(), 
+                                                             x=dataTemp_Interp.columns.to_numpy(), 
+                                                             axis=1)),
                                            index=time_int)
             # S2
-            dataTemp = simpson(y=FitDataResult_End.iloc[:, :-1].to_numpy(),
+                dataTemp = simpson(y=FitDataResult_End.iloc[:, :-1].to_numpy(),
                                x=FitDataResult_End.iloc[:,:-1].columns.to_numpy(),
                                axis=1)
+            except:
+                print(dataTemp_Interp.shape)
+                print(dataTemp.shape)
+                exit()
 
             dataFit_interp2 = pd.DataFrame(dataTemp, index=time_int)
 
@@ -563,13 +599,16 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
         M_all.loc[i, 'error'] = dataFit_interp2.div(dataFit_interp1).std(axis=0).to_numpy()
 
         if Observable == 'M2':
-            fitness_values[i] = (M_all.loc[i, 'S2'][0].loc[(M_all.loc[i, 'S2'][0].index > Time_Min) & (M_all.loc[i, 'S2'][0].index < Time_Max), 0]
-                                 / M_all.loc[i, 'S1'][0].loc[(M_all.loc[i, 'S1'][0].index > Time_Min) & (M_all.loc[i, 'S1'][0].index < Time_Max), 0]).mean()
+            fitness_values[i] = np.abs((M_all.loc[i, 'S2'][0].loc[(M_all.loc[i, 'S2'][0].index > Time_Min) &
+                                                                   (M_all.loc[i, 'S2'][0].index < Time_Max), 0]).mean())
+            #fitness_values[i] = (M_all.loc[i, 'S2'][0].loc[(M_all.loc[i, 'S2'][0].index > Time_Min) & (M_all.loc[i, 'S2'][0].index < Time_Max), 0]
+            #                     / M_all.loc[i, 'S1'][0].loc[(M_all.loc[i, 'S1'][0].index > Time_Min) & (M_all.loc[i, 'S1'][0].index < Time_Max), 0]).mean()
         elif Observable == 'M1':
             fitness_values[i] = (M_all.loc[i, 'S2'][0].loc[(M_all.loc[i, 'S2'][0].index > Time_Min) & (M_all.loc[i, 'S2'][0].index < Time_Max), 0]
                                  - M_all.loc[i, 'S1'][0].loc[(M_all.loc[i, 'S1'][0].index > Time_Min) & (M_all.loc[i, 'S1'][0].index < Time_Max), 0]).mean()
         population[i].fitness = fitness_values[i]
 
+    print()
     print("# FITNESS VALUES #")
     print(fitness_values)
 
@@ -583,15 +622,15 @@ def evaluateFitnessValues(population, FileDir, FolderCalibWavelength, Spectrogra
         ML_Data_Shared.loc[i,'Time step']=[TimeCycle.loc[:,i]]
         ML_Data_Shared.loc[i,'S1']=FitAll_Begin.loc[(FitAll_Begin['Mes']==i) & (FitAll_Begin.index>10),:].iloc[:,:-1].max(axis=1).mean()
         ML_Data_Shared.loc[i,'S2']=FitAll_End.loc[(FitAll_End['Mes']==i) & (FitAll_End.index>10),:].iloc[:,:-1].max(axis=1).mean()
-        ML_Data_Shared.loc[i,'Script Version']="2025-03-18"
-        ML_Data_Shared.loc[i,'Dataset name']='N.A'
+        ML_Data_Shared.loc[i,'Script Version']="2025-04-10"
+        ML_Data_Shared.loc[i,'Dataset name']=FileDir
         ML_Data_Shared.loc[i,'S1 full']=[M_all.loc[i,'S1'][0]]
         ML_Data_Shared.loc[i,'S2 full']=[M_all.loc[i,'S2'][0]]
         ML_Data_Shared.loc[i,'Reset time']=StabilityTime_reset
         ML_Data_Shared.loc[i,'fitness']=fitness_values[i]
 
 
-    ML_Data_Shared.to_pickle('./ML_Data_Shared_Gen{}.pkl'.format(GenerationNumber))
+    ML_Data_Shared.to_pickle(FileDir+'/ML_Data_Shared_Gen{}.pkl'.format(GenerationNumber))
 
 
 def get_best_solution(candidates):
@@ -612,25 +651,41 @@ def tournamentSelection(selection_pool, tournament_size=4):
             selected.append(best)
     return selected
 
-
-def twoPointCrossOver(parent_a, parent_b):
+def uniformCrossover(parent_a, parent_b):
     l = len(parent_a['t_cyc'])
     offspring_a = pd.DataFrame()
     offspring_b = pd.DataFrame()
-    m = (np.arange(l) < np.random.randint(l+1)
-         ) ^ (np.arange(l) < np.random.randint(l+1))
+    m = np.random.randint(2, size=l) == 1
     properties = ['t_cyc', 'p_cyc', 'p_cyc_calib']
     for prop in properties:
         offspring_a[prop] = np.where(m, parent_a[prop], parent_b[prop])
         offspring_b[prop] = np.where(~m, parent_a[prop], parent_b[prop])
     return [offspring_a, offspring_b]
 
+def twoPointCrossover(parent_a, parent_b):
+    l = len(parent_a['t_cyc'])
+    offspring_a = pd.DataFrame()
+    offspring_b = pd.DataFrame()
+    m = (np.arange(l) < np.random.randint(l+1)) ^ (np.arange(l) < np.random.randint(l+1))
+    properties = ['t_cyc', 'p_cyc', 'p_cyc_calib']
+    for prop in properties:
+        offspring_a[prop] = np.where(m, parent_a[prop], parent_b[prop])
+        offspring_b[prop] = np.where(~m, parent_a[prop], parent_b[prop])
+    return [offspring_a, offspring_b]
 
-def makeOffspring(population):
+def crossover(crossover_type, parent_a, parent_b):
+    if crossover_type == 'uniform':
+        return uniformCrossover(parent_a, parent_b)
+    elif crossover_type == 'twopoint':
+        return twoPointCrossover(parent_a, parent_b)
+    else:
+        raise Exception('Invalid crossover type')
+
+def makeOffspring(population, crossover_type):
     offspring = []
     order = np.random.permutation(len(population))
     for i in range(len(order)//2):
-        offsprings = twoPointCrossOver(
+        offsprings = crossover(crossover_type,
             population[order[2*i]], population[order[2*i+1]])
         offspring = offspring + offsprings
     return offspring
@@ -711,13 +766,17 @@ def LoadDataFromFiles(FileDir, FolderCalibWavelength, WaveCenter,GenerationNumbe
     for j in range(len(Folder)):
         print('\r Reading Files:{} %'.format(
             np.round(100*j/len(Folder), 1)), end='', flush=True)
-        File = glob.glob(Folder[j]+'/*.spe')
+        File = glob.glob(Folder[j]+'/*[0-9].spe')
         DataRaw = sl.load_from_files(File)
         MetaData = pd.DataFrame(DataRaw.metadata)
         TimeI = MetaData.loc[:, 0].to_numpy()/(1E6)  # Time in ms
-        DataTotTemp=pd.DataFrame(columns=list(Wavelength)+['Time','Mes'])
+        DataTotTemp=pd.DataFrame(columns=list(Wavelength)+['Time','Mes'])    
         try:
-            DataTotTemp[Wavelength]=np.squeeze(DataRaw.data)
+            temp=np.squeeze(DataRaw.data)
+            if temp.shape[0]!=2: # if there is multiple ROI
+                DataTotTemp[Wavelength]=temp
+            else:
+                DataTotTemp[Wavelength]=np.squeeze(temp[0,:,:])
         except Exception as e:
             print('\n{}'.format(e))
             exit
@@ -754,51 +813,54 @@ def LoadDataFromFiles(FileDir, FolderCalibWavelength, WaveCenter,GenerationNumbe
 
     return DataTot, CycleStore, len(Folder)
 
+if __name__ != '__main__':
+    generations_budget=1
 
 if __name__ == '__main__':
 
     if not USE_DUMMY:
         os.system('cls')
-    PlaneCoefficient=np.array([ -3.7526087,   -8.6386087,  138.71903478])
+    PlaneCoefficient=np.array([-12.08998039,  -1.80202147,  96.62300666])
 
     # Value to reach on the powermeter (0,11,25,240,475)uW
-    P_calib = (500, 500, 900, 2200, 2900)
+    P_calib = (500, 500, 800, 2200, 3100)
 
     #############################
     # Optimization parameters
     #############################
-    generations_budget = 10
+    generations_budget = 6
+    crossover_type = 'twopoint'
     StartFromSeed=False
 
     #############################
     # Position parameters
     #############################
     Nb_Points_Generation = 100 # Number of cycle per generations
-    Nb_points_Piezo=9 # Number of position for the piezo
+    Nb_points_Piezo=4 # Number of position for the piezo
     BeamRadius = 30  # Minimum distance betweensuccesive point in um
-    SpacingRoughFine=0.150
+    SpacingRoughFine=0.25
 
     # Rough stage parameter
-    start_x_rough=9.1
-    start_y_rough=8.4
+    start_x_rough=2
+    start_y_rough=6
 
     #############################
     # Cycles paramters
     #############################
     Nb_Cycle = 10  # Number of cycle during experiment
-    StabilityTime_Begin = 60  # Time for which it will probe at the beginning of the cycle
+    StabilityTime_Begin = 60# Time for which it will probe at the beginning of the cycle
     StabilityTime_Reset = 60# The beam will then be block for this amount of time so that the sample 'reset'
     StabilityTime_End = 60  # Time for which it will probe at the end of the cycle
     # The total time is then StabilityTime_Begin+ StabilityTime_Reset+ StabilityTime_End+Time of cycle
 
-    Time_Min = 40
+    Time_Min = 30
     Time_Max = 60
     
     #############################
     # Detection parameters
     #############################
-    PowerProbePulsePicker = 500
-    EmGainProbe = 100
+    PowerProbePulsePicker = 900
+    EmGainProbe = 80 # set to zero if low moise mode
 
     #############################
     # FW parameters
@@ -809,19 +871,21 @@ if __name__ == '__main__':
     #############################
     # Misc
     #############################
-    Spectrograph_slit = 50  # This is just for record not actually setting it up
-    Spectrograph_Center = 700  # This is just for record not actually setting it up
+    Spectrograph_slit = 200  # This is just for record not actually setting it up
+    Spectrograph_Center = 660  # This is just for record not actually setting it up
 
     FolderCalibWavelength = '//sun/garnett/home-folder/gautier/Femto-setup/Data/0.Calibration/Spectrometer.csv'
-    GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points': np.ceil(Nb_Points_Generation/Nb_points_Piezo)*generations_budget*Nb_points_Piezo, 
+    GeneralPara = {'Experiment name': ' ML_Anton', 'Nb_points': np.ceil(Nb_Points_Generation/Nb_points_Piezo)*generations_budget*Nb_points_Piezo,
+                    'crossover_type' : crossover_type, 
                     'Nb_points_Generation':Nb_Points_Generation,'Nb_points_piezo':Nb_points_Piezo,
                     'Beam avoidance radius': BeamRadius,'SpacingRoughFine':SpacingRoughFine,
                     'Stability time begin ': StabilityTime_Begin, 'Stability time reset': StabilityTime_Reset, 'Stability time end ': StabilityTime_End,
                     'Power probe ': PowerProbePulsePicker, 'Em Gain probe': EmGainProbe,
                     'Spectrograph slit width': Spectrograph_slit, 'Spectrograph center Wavelength': Spectrograph_Center,
                     'FilterWheel Pos':FilterWheelPosCycle,'Time Transi':TimeTransFilterWheel,
-                    'Note': 'The SHG unit from Coherent was used and ND1 for probe,beam 1.7um',
-                    'Note Imp': 'Added an ND1 before the spatial filter to reduce power but didnt change the pulse picker power'}
+                    'Coefficient Plane':PlaneCoefficient,
+                    'Note': 'The SHG unit from Coherent was used and ND3 for probe,beam 1.7um',
+                    'NotePower':'Power before BS 22uW'}
 
     # FileDir = '/export/scratch2/constellation-data/EnhancePerov/output-dummy/'
     FileDir = 'output-dummy/'
@@ -834,9 +898,15 @@ if __name__ == '__main__':
     if StartFromSeed==True:
         print('Select seed Directory')
         SeedDirectory=FileControl.AskDirectory()
-    
+    print('Select folder for points calibration')
+    PointsDirectory=FileControl.AskDirectory()
+    try:
+        PointsCalib=pd.read_csv(PointsDirectory+'/PointFocusCalib.csv',index_col=0)
+    except:
+        print('Could not find the file for points calibration')
+        sys.exit()
     runner = timeTraceRunner(**GeneralPara)
-    runner.initialize(start_x_rough, start_y_rough, BeamRadius,PlaneCoefficient, SpacingRoughFine, FileDir)
+    runner.initialize(start_x_rough, start_y_rough, BeamRadius,PlaneCoefficient, SpacingRoughFine, FileDir, PointsCalib)
 
     #############################
     # Generate initial population and calculate fitness values
@@ -845,7 +915,7 @@ if __name__ == '__main__':
     if StartFromSeed==False:
         population = generateRandomParameters(runner.Nb_Points, Nb_Cycle,P_calib)
         runner.runTimeTrace(StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
-                        PowerProbePulsePicker, EmGainProbe, population,FilterWheelPosCycle)
+                        PowerProbePulsePicker, EmGainProbe, population,0,FilterWheelPosCycle,TimeTransFilterWheel)
         evaluateFitnessValues(population, runner.DirectoryPath,
                           FolderCalibWavelength, runner.spectro.GetWavelength(), Time_Min, Time_Max, 'M2',0)
     else:
@@ -862,11 +932,11 @@ if __name__ == '__main__':
         print("# GENERATION", number_of_generations, "#")
         print("################")
 
-        offspring = makeOffspring(population)
+        offspring = makeOffspring(population, offspring_type)
 
         # run the experiment
         runner.runTimeTrace(StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
-                            PowerProbePulsePicker, EmGainProbe, offspring,FilterWheelPosCycle)
+                            PowerProbePulsePicker, EmGainProbe, offspring,number_of_generations,FilterWheelPosCycle,TimeTransFilterWheel)
         # calculate fitness values
         evaluateFitnessValues(offspring, runner.DirectoryPath,
                               FolderCalibWavelength, runner.spectro.GetWavelength(), Time_Min, Time_Max, 'M2',number_of_generations)
