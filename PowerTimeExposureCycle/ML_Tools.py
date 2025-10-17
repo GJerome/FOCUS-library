@@ -414,11 +414,12 @@ if __name__ == '__main__':
     InstrumentsPara['PI EMCCD'] = camera.parameterDict
     print('Initialised EMCCD')
     
-    x_begin=0
-    y_begin=6
-    
-    x=np.linspace(x_begin,x_begin+2.5,5)
-    y=np.linspace(y_begin,y_begin+2.5,6)
+    x_begin=8
+    x_end=11
+    y_begin=2
+    y_end=8
+    x=np.linspace(x_begin,x_end,5)
+    y=np.linspace(y_begin,y_end,6)
     X, Y = np.meshgrid(x, y)
     Pos=np.stack([X.ravel(), Y.ravel()], axis=-1)
     index = random.sample(range(0, Pos.shape[0]), Pos.shape[0]) #comment those line if you want the points to be unshuffled 
