@@ -40,11 +40,16 @@ class KymeraSpectrograph:
     ###########
     # Set
     ###########
+
     def SetWavelength(self,wave):
         ret=self.sdk.SetWavelength(0,int(wave))
 
     def SetSlitwidth(self,width):
         ret=self.sdk.SetSlitWidth(0,1,int(width))
+    
+    def SetFlipMirror(self,Port):
+        '''Set output 0 for direct, 1 for side'''
+        ret=self.sdk.SetFlipperMirror(0,2,Port)
 
     ###########
     # MISC
@@ -58,8 +63,8 @@ if __name__ == "__main__":
     spectro=KymeraSpectrograph()
     print('Spectro Wavelength = {} nm'.format(spectro.GetWavelength()))
     print('Slit width= {} um'.format(spectro.GetSlitwidth()))
-    print(spectro.SlitWidth)
-    print(spectro.Wavelength)
     spectro.SetSlitwidth(100)
-    spectro.SetWavelength(650)
+    spectro.SetWavelength(700)
+    #spectro.SetFlipMirror(0)
     print('Slit width= {} um'.format(spectro.GetSlitwidth()))
+    print('Spectro Wavelength = {} nm'.format(spectro.GetWavelength()))
