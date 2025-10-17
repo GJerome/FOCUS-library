@@ -8,6 +8,7 @@ import pandas as pd
 import spe_loader as sl
 import matplotlib.pyplot as plt
 import random
+from typing import List
 
 import ControlPiezoStage as Transla
 import ControlLaser as laser
@@ -23,6 +24,70 @@ from scipy.spatial import Delaunay
 #############################
 # Position generation
 #############################
+
+def RandomPerm(N: int, k: int, max_restarts: int = 200):
+    """
+    Return a random permutation of 0..N-1 such that |a[i] - a[i-1]| >= k for all i>=1.
+    Raises ValueError if not found after `max_restarts` randomized attempts.
+    Warning: This code was generated using chatgpt but works for our purpose
+    """
+
+    if N <= 1:
+        return list(range(N))
+    if k <= 0:
+        # no constraint
+        lst = list(range(N))
+        random.shuffle(lst)
+        return lst
+    if k >= N:
+        # impossible: any two distinct numbers differ by at most N-1
+        raise ValueError(f"No permutation exists for N={N} with gap k={k} (k >= N).")
+
+    # Precompute allowed transitions for each value v
+    allowed = {v: [u for u in range(N) if u != v and abs(u - v) >= k] for v in range(N)}
+
+    # Warnsdorff-style ordering: try next nodes with the fewest onward options first
+    # (dramatically speeds up backtracking).
+    def sorted_candidates(curr, used):
+        cands = [u for u in allowed[curr] if not used[u]]
+        # Degree = how many unused options from u
+        cands.sort(key=lambda u: sum((not used[w]) for w in allowed[u]))
+        return cands
+
+    # Try several randomized starts
+    starts = list(range(N))
+    for _ in range(max_restarts):
+        random.shuffle(starts)
+        used = [False] * N
+
+        def dfs(path: List[int]) -> bool:
+            if len(path) == N:
+                return True
+            curr = path[-1]
+            # randomize tie-breaks while keeping heuristic
+            cands = sorted_candidates(curr, used)
+            # light randomization: swap nearby options sometimes
+            random.shuffle(cands)
+
+            for nxt in cands:
+                used[nxt] = True
+                path.append(nxt)
+                if dfs(path):
+                    return True
+                path.pop()
+                used[nxt] = False
+            return False
+
+        for s in starts:
+            # start from s
+            used = [False] * N
+            used[s] = True
+            path = [s]
+            if dfs(path):
+                return path
+
+    raise ValueError(f"Couldn't find a valid permutation for N={N}, k={k} after {max_restarts} restarts.")
+
 def DistanceTwoPoint(pointA, pointB):
     return np.sqrt(np.sum((pointA - pointB)**2, axis=0))
 
@@ -38,9 +103,12 @@ def is_inside_convex_hull(x, y, points_2d):
         return False
 
 def estimate_z(x, y, df, a, b, c):
+
+    if df==[]:
+        return a * x + b * y + c
     
     points_2d = df[['x', 'y']].to_numpy(dtype=float)
-    #return a * x + b * y + c
+
 
     if not is_inside_convex_hull(x, y, points_2d):
         print('Not inside hull: x={} y={}'.format(x,y))
@@ -73,23 +141,23 @@ def estimate_z(x, y, df, a, b, c):
 
 def Generate_RandomPositionRoughFine(generations_budget,Nb_Points_Generation,Nb_points_Piezo,
                                      Coeff,PointsCalib,BeamRadius=30,
-                                     startX_rough=10,startY_rough=10,SpacingBetweenRough=0.150):
-    GeneralPosition=pd.DataFrame(columns=['x_rough','y_rough','x_piezo','y_piezo','z_piezo','Cluster','Generation'])
-
+                                     startX_rough=2,endX_rough=10,startY_rough=2,endY_rough=10,SpacingBetweenRough=0.160):
 
     NbPts_RoughAxis=np.ceil(Nb_Points_Generation/Nb_points_Piezo)*generations_budget
 
-    x = np.linspace(startX_rough, startX_rough+SpacingBetweenRough*np.ceil(np.sqrt(NbPts_RoughAxis)),
-                     int(np.ceil(np.sqrt(NbPts_RoughAxis))))
-    y = np.linspace(startY_rough, startY_rough+SpacingBetweenRough*np.ceil(np.sqrt(NbPts_RoughAxis)),
-                     int(np.ceil(np.sqrt(NbPts_RoughAxis))))
-
+    x = np.linspace(start=startX_rough,stop=endX_rough,num=int(np.ceil(np.sqrt(NbPts_RoughAxis))))
+    y = np.linspace(start=startY_rough, stop=endY_rough,num=int(np.ceil(np.sqrt(NbPts_RoughAxis))))
+    if (x[1]-x[0]<SpacingBetweenRough) or (y[1]-y[0]<SpacingBetweenRough):
+        print('ML_Tools error: xrough/yrough window too narrow')
+        sys.exit()
     X, Y = np.meshgrid(x, y)
 
     Pos_rough = np.stack([X.ravel(), Y.ravel()], axis=-1)
 
     i=0
     print('Carefull: not hull method.')
+    
+    GeneralPosition=pd.DataFrame(columns=['x_rough','y_rough','x_piezo','y_piezo','z_piezo','Cluster','Generation'])
     for j in range(generations_budget):
         k=0
         while k<Nb_Points_Generation:
@@ -132,14 +200,19 @@ def Generate_RandomPositionRoughFine(generations_budget,Nb_Points_Generation,Nb_
             Pos_df['y_rough']=Pos_rough[i,1]
             Pos_df['Cluster']=i
             Pos_df['Generation']=j
-            #GeneralPosition=pd.concat([GeneralPosition,Pos_df],axis=0,ignore_index=True)
             if i==0:
                 GeneralPosition=Pos_df
             else:
                 GeneralPosition=pd.concat([GeneralPosition,Pos_df],axis=0,ignore_index=True)
             k=k+len(Pos[:,0])
             i=i+1
-        
+    # We now have an ordered list containing all the position that we will take
+    # We known that each sucessive cluster is spaced by at least SpacingBetweenRough so we can use the RandomPerm
+    # function that will pernute points so that neighboring points are at least 4 points away
+    IndexPermu=RandomPerm(GeneralPosition.shape[0],5,200)
+    SwitchName=['x_rough','y_rough','x_piezo','y_piezo','z_piezo','Cluster']
+    GeneralPosition[SwitchName]=GeneralPosition.loc[IndexPermu,SwitchName].reset_index(drop=True)
+
     return GeneralPosition
 
 #############################
