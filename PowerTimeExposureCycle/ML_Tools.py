@@ -94,8 +94,10 @@ def DistanceTwoPoint(pointA, pointB):
 
 def DistanceArray(pointA, pointsB):
     return np.sqrt(np.sum((pointA - pointsB)**2, axis=1))
+
 def is_inside_convex_hull(x, y, points_2d):
     """Check if a point is inside the convex hull using Delaunay triangulation."""
+        
     try:
         tri = Delaunay(points_2d)
         return tri.find_simplex(np.array([[x, y]])) >= 0
@@ -103,10 +105,13 @@ def is_inside_convex_hull(x, y, points_2d):
         return False
 
 def estimate_z(x, y, df, a, b, c):
+    ''' In this function df is supposed to be in the calibration points and x,y the query points.'''
+    try:
+        if df==[]:
+            return a * x + b * y + c
+    except ValueError:
+        pass
 
-    if df==[]:
-        return a * x + b * y + c
-    
     points_2d = df[['x', 'y']].to_numpy(dtype=float)
 
 
@@ -126,7 +131,6 @@ def estimate_z(x, y, df, a, b, c):
     # Compute normal vector to the plane
     v1 = p2 - p1
     v2 = p3 - p1
-    print(v1)
     normal = np.cross(v1, v2)
     
     # Handle degenerate case where points are collinear or near-collinear
@@ -195,7 +199,10 @@ def Generate_RandomPositionRoughFine(generations_budget,Nb_Points_Generation,Nb_
             Pos = PosFiltered
             Pos_df['x_piezo']=Pos[:,0]
             Pos_df['y_piezo']=Pos[:,1]
-            Pos_df['z_piezo']=estimate_z(Pos_rough[i,0]+0.001*Pos[:,0],Pos_rough[i,1]+0.001*Pos[:,1],PointsCalib,Coeff[0],Coeff[1],Coeff[2])
+            temp=np.empty(Pos.shape[0])
+            for l in range(Pos.shape[0]):
+                temp[l]=estimate_z(Pos_rough[i,0]+0.001*Pos[l,0],Pos_rough[i,1]+0.001*Pos[l,1],PointsCalib,Coeff[0],Coeff[1],Coeff[2])
+            Pos_df['z_piezo']=temp
             Pos_df['x_rough']=Pos_rough[i,0]
             Pos_df['y_rough']=Pos_rough[i,1]
             Pos_df['Cluster']=i
@@ -487,10 +494,10 @@ if __name__ == '__main__':
     InstrumentsPara['PI EMCCD'] = camera.parameterDict
     print('Initialised EMCCD')
     
-    x_begin=8
-    x_end=11
-    y_begin=2
-    y_end=8
+    x_begin=7
+    x_end=10
+    y_begin=6
+    y_end=8.5
     x=np.linspace(x_begin,x_end,5)
     y=np.linspace(y_begin,y_end,6)
     X, Y = np.meshgrid(x, y)
