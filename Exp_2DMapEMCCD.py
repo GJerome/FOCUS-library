@@ -1,4 +1,5 @@
 import ControlFlipMount as shutter
+import ControlThorlabsShutter as ThorlabsShutter
 import ControlLaser as las
 import ControlPulsePicker as picker
 import FileControl
@@ -20,27 +21,27 @@ os.system('cls')
 #############################
 # Global parameter
 #############################
-Nb_Points_subgrid=2500
-EMGain=20
+Nb_Points_subgrid=600
+EMGain=60
 
 # The way it is set up is so that it will iterate thought Divratio and take the associated element in PowerPulsePicker
 #So first element of DivRatio will take the first element of PowerPulsePicker
-DivRatio=4
-PowerPulsePicker=500
-ProbePower=5# Power of the probe in uW. This will not change anything in the scipt it is just for recording purpose
-Spectrograph_slit=10 # This is just for record not actually setting it up
-Spectrograph_Center=750# This is just for record not actually setting it up
-BeamRadius=10
+DivRatio=20
+PowerPulsePicker=800
+ProbePower='60uW'# Power of the probe in uW. This will not change anything in the scipt it is just for recording purpose
+Spectrograph_slit=200 # This is just for record not actually setting it up
+Spectrograph_Center=700# This is just for record not actually setting it up
+BeamRadius=1.7
 #############################
 # Piezo parameter
 #############################
 
 #Definition of small grid
 
-start_x =5
-end_x = 80
-start_y = 5
-end_y = 80
+start_x =0.5
+end_x = 25
+start_y =0.5
+end_y = 25
 
 
 x = np.linspace(start_x, end_x, int(np.floor(np.sqrt(Nb_Points_subgrid))))
@@ -89,7 +90,8 @@ print('Number of Points:{}\n'.format(GeneralPos.shape[0]))
 GeneralPara = {'Experiment name': ' PLMap', 'Nb points': Nb_Points_subgrid,'Beam avoidance radius':BeamRadius,
                'Power pulse picker':PowerPulsePicker,'Div ratio':DivRatio,'Probe recorded power before BS [uW]':ProbePower,
                'Spectro center wavelength':Spectrograph_Center,'spectro slit width':Spectrograph_slit,
-               'Note': 'The SHG unit from Coherent was used'}
+               'Note': 'The SHG unit from Coherent was used 3.2um Beam ','LED para':'50mhz,3.4V DC 3V AC',
+               'Note EMCCD':'Low noise with full frame'}
 
 InstrumentsPara = {}
 
@@ -125,24 +127,21 @@ elif 'ControlPiezoStage' in sys.modules:
     y_axis = Transla.PiezoAxisControl(piezo, 'z',3)
     print('Initialised piezo translation stage')
 
-
-
 #############################
 # Initialisation of the shutter
 #############################
-
-FM = shutter.FlipMount("37007726")
-print('Initialised Flip mount')
+FM = ThorlabsShutter.ShutterControl("68800883",'Shutter')
+InstrumentsPara['FlipMount']=FM.parameterDict 
 
 #############################
 # Initialisation of the EMCCD
 #############################
 
-camera = EMCCD.LightFieldControl('ML')
+camera = EMCCD.LightFieldControl('ML2')
 FrameTime = camera.GetFrameTime()
 ExposureTime = camera.GetExposureTime()
-camera.SetNumberOfFrame(1.0)
-camera.SetEMGain(EMGain)
+#camera.SetNumberOfFrame(1.0)
+#camera.SetEMGain(EMGain)
 NumberOfFrame = camera.GetNumberOfFrame()
 InstrumentsPara['PI EMCCD'] = camera.parameterDict
 print('Initialised EMCCD')
@@ -168,14 +167,16 @@ for k in IteratorMes:
     if k==0:
             x_axis.MoveTo(GeneralPos[k,0])
             y_axis.MoveTo(GeneralPos[k,1])
-            FM.ChangeState(1)
     else:
             x_axis.MoveTo(GeneralPos[k,0])
             y_axis.MoveTo(GeneralPos[k,1])
+    FM.SetOpen()
     camera.Acquire()
     camera.WaitForAcq()
+    FM.SetOpen()
+
+print('Close LF windows')
+time.sleep(5)
 
 
-
-FM.ChangeState(0)
 Laser.SetStatusShutterTunable(0)
