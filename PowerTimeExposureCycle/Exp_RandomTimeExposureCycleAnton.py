@@ -81,10 +81,10 @@ class timeTraceRunner:
         self.Nb_points_Generation=self.GeneralPara['Nb_points_Generation']
         
 
-    def initialize(self, start_x_rough, start_y_rough, BeamRadius,Coeff,SpacingBetweenRough_p,FileDir,PointsCalib):
+    def initialize(self, start_x_rough,end_x_rough, start_y_rough,end_y_rough, BeamRadius,Coeff,SpacingBetweenRough_p,FileDir,PointsCalib):
         self.initializePos(generations_budget,self.Nb_points_Generation,self.GeneralPara['Nb_points_piezo'],
                                      Coeff,PointsCalib,BeamRadius=BeamRadius,
-                                     startX_rough=start_x_rough,startY_rough=start_y_rough,
+                                     startX_rough=start_x_rough,endX_rough=end_x_rough,startY_rough=start_y_rough,end_Y_rough=end_y_rough,
                                      SpacingBetweenRough=SpacingBetweenRough_p)
         self.initializeInstruments()
         self.initializeTranslation()
@@ -96,12 +96,14 @@ class timeTraceRunner:
 
     def initializePos(self,generations_budget,Nb_Points_Generation,Nb_points_Piezo,
                                      Coeff,PointsCalib,BeamRadius,
-                                     startX_rough,startY_rough,SpacingBetweenRough):
+                                     startX_rough,endX_rough,startY_rough,end_Y_rough,SpacingBetweenRough):
 
-        self.Pos=ML_Tools.Generate_RandomPositionRoughFine(generations_budget,Nb_Points_Generation,
-                                                           Nb_points_Piezo,
-                                     Coeff,PointsCalib,BeamRadius,
-                                     startX_rough,startY_rough,SpacingBetweenRough)
+        self.Pos=ML_Tools.Generate_RandomPositionRoughFine(
+            generations_budget=generations_budget,Nb_Points_Generation=Nb_Points_Generation,Nb_points_Piezo= Nb_points_Piezo,
+                                     Coeff=Coeff,PointsCalib=PointsCalib,BeamRadius=BeamRadius,
+                                     startX_rough=startX_rough,endX_rough=endX_rough,
+                                     startY_rough=startY_rough,endY_rough=end_Y_rough,
+                                     SpacingBetweenRough=SpacingBetweenRough)
         
         self.GeneralPara['Nb_points'] = self.Pos.loc[self.Pos['Generation']==0,:].shape[0]
         self.Nb_Points = self.Pos.loc[self.Pos['Generation']==0,:].shape[0]
@@ -759,7 +761,16 @@ def LoadDataFromFiles(FileDir, FolderCalibWavelength, WaveCenter,GenerationNumbe
     CenterPixel = WaveCenter
     Wavelength = (PixelNumber-b)/a+CenterPixel
     
-    Folder = sorted(glob.glob(FileDir+'/Mes*'),key=lambda x: float(x[x.find('Mes')+3:x.find('x')]))
+    try:
+        Folder = sorted(glob.glob(FileDir+'/Mes*'),key=lambda x: float(x[x.find('Mes')+3:x.find('x')]))
+        print(Folder)
+    except ValueError:
+        print('LoadDataFromFiles error: Name of directory should not include Mes or x')
+        print('     {}'.format(FileDir))
+        StringOffset=glob.glob(FileDir+'/Mes*').find('Mes')
+        substring=glob.glob(FileDir+'/Mes*')[StringOffset:]   
+        Folder = sorted(glob.glob(FileDir+'/Mes*'),key=lambda x: float(x[StringOffset+3:StringOffset+substring.find('x')]))
+        print(Folder)
     CycleStore = pd.DataFrame()
     DataTot = pd.DataFrame(columns=list(Wavelength)+['Time','Mes'])
 
@@ -820,7 +831,7 @@ if __name__ == '__main__':
 
     if not USE_DUMMY:
         os.system('cls')
-    PlaneCoefficient=np.array([-12.08998039,  -1.80202147,  96.62300666])
+    PlaneCoefficient=np.array([-1.11121788,  0.23187988, 49.89169036])
 
     # Value to reach on the powermeter (0,11,25,240,475)uW
     P_calib = (500, 500, 800, 2200, 3100)
@@ -838,11 +849,13 @@ if __name__ == '__main__':
     Nb_Points_Generation = 100 # Number of cycle per generations
     Nb_points_Piezo=4 # Number of position for the piezo
     BeamRadius = 30  # Minimum distance betweensuccesive point in um
-    SpacingRoughFine=0.25
+    SpacingRoughFine=0.160
 
     # Rough stage parameter
-    start_x_rough=2
-    start_y_rough=6
+    start_x_rough=7.1
+    end_x_rough=9.9
+    start_y_rough=6.1
+    end_y_rough=8.4
 
     #############################
     # Cycles paramters
@@ -859,8 +872,8 @@ if __name__ == '__main__':
     #############################
     # Detection parameters
     #############################
-    PowerProbePulsePicker = 900
-    EmGainProbe = 80 # set to zero if low moise mode
+    PowerProbePulsePicker = 800
+    EmGainProbe = 60 # set to zero if low moise mode
 
     #############################
     # FW parameters
@@ -885,7 +898,7 @@ if __name__ == '__main__':
                     'FilterWheel Pos':FilterWheelPosCycle,'Time Transi':TimeTransFilterWheel,
                     'Coefficient Plane':PlaneCoefficient,
                     'Note': 'The SHG unit from Coherent was used and ND3 for probe,beam 1.7um',
-                    'NotePower':'Power before BS 22uW'}
+                    'NotePower':'Power before BS 21uW'}
 
     # FileDir = '/export/scratch2/constellation-data/EnhancePerov/output-dummy/'
     FileDir = 'output-dummy/'
@@ -906,7 +919,7 @@ if __name__ == '__main__':
         print('Could not find the file for points calibration')
         sys.exit()
     runner = timeTraceRunner(**GeneralPara)
-    runner.initialize(start_x_rough, start_y_rough, BeamRadius,PlaneCoefficient, SpacingRoughFine, FileDir, PointsCalib)
+    runner.initialize(start_x_rough,end_x_rough, start_y_rough,end_y_rough, BeamRadius,PlaneCoefficient, SpacingRoughFine, FileDir, PointsCalib)
 
     #############################
     # Generate initial population and calculate fitness values
@@ -932,7 +945,7 @@ if __name__ == '__main__':
         print("# GENERATION", number_of_generations, "#")
         print("################")
 
-        offspring = makeOffspring(population, offspring_type)
+        offspring = makeOffspring(population, crossover_type)
 
         # run the experiment
         runner.runTimeTrace(StabilityTime_Begin, StabilityTime_Reset, StabilityTime_End,
