@@ -5,6 +5,7 @@ Atrier/
 DataAnalysis/DataPLQY/
 DataAnalysis/DataStreakPL/
 PowerTimeExposureCycle/PowerTimeCycles/
+PowerTimeExposureCycle/
 
 # Data file to ignore
 *.pkl
